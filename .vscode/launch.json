@@ -4,17 +4,17 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "F:\\GitLab\\nvp\\bin_x64\\Debug\\vk_raytrace.exe",
+            "program": "${workspaceFolder}/bin_x64/Debug/raytracing.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "externalTerminal"
-        }
+            "console": "externalTerminal",
+            "preLaunchTask": "CMake: build"
+        },
     ]
 }
