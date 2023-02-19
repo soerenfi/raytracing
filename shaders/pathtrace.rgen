@@ -93,7 +93,7 @@ void main()
   }
 
   // Do accumulation over time
-  if(rtxState.frame > 0)
+  if(rtxState.frame > 0 && (rtxState.accumulate == 1))
   {
     vec3 old_color  = imageLoad(resultImage, imageCoords).xyz;
     vec3 new_result = mix(old_color, pixelColor, 1.0f / float(rtxState.frame + 1));

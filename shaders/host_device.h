@@ -17,18 +17,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 /*
-  Various structure used by CPP and GLSL 
+  Various structure used by CPP and GLSL
 */
-
 
 #ifndef COMMON_HOST_DEVICE
 #define COMMON_HOST_DEVICE
 
-
 #ifdef __cplusplus
 #include <stdint.h>
+
 #include "nvmath/nvmath.h"
 // GLSL Type
 using ivec2 = nvmath::vec2i;
@@ -96,17 +94,16 @@ START_ENUM(DebugMode)
   eRoughness = 6,   //
   eTexcoord  = 7,   //
   eTangent   = 8,   //
-  eRadiance  = 9,   //
-  eWeight    = 10,  //
-  eRayDir    = 11,  //
-  eHeatmap   = 12   //
+  eDepth     = 9,   //
+  eRadiance  = 10,   //
+  eWeight    = 11,  //
+  eRayDir    = 12,  //
+  eHeatmap   = 13   //
 END_ENUM();
 // clang-format on
 
-
 // Camera of the scene
-struct SceneCamera
-{
+struct SceneCamera {
   mat4  viewInverse;
   mat4  projInverse;
   float focalDist;
@@ -115,8 +112,7 @@ struct SceneCamera
   int nbLights;
 };
 
-struct VertexAttributes
-{
+struct VertexAttributes {
   vec3 position;
   uint normal;    // compressed using oct
   vec2 texcoord;  // Tangent handiness, stored in LSB of .y
@@ -124,15 +120,13 @@ struct VertexAttributes
   uint color;     // RGBA
 };
 
-
 // GLTF material
 #define MATERIAL_METALLICROUGHNESS 0
 #define MATERIAL_SPECULARGLOSSINESS 1
 #define ALPHA_OPAQUE 0
 #define ALPHA_MASK 1
 #define ALPHA_BLEND 2
-struct GltfShadeMaterial
-{
+struct GltfShadeMaterial {
   // 0
   vec4 pbrBaseColorFactor;
   // 4
@@ -185,10 +179,8 @@ struct GltfShadeMaterial
   // 52
 };
 
-
 // Use with PushConstant
-struct RtxState
-{
+struct RtxState {
   int   frame;                  // Current frame, start at 0
   int   maxDepth;               // How deep the path is
   int   maxSamples;             // How many samples to do per render
@@ -200,17 +192,16 @@ struct RtxState
   ivec2 size;                   // rendering size
   int   minHeatmap;             // Debug mode - heat map
   int   maxHeatmap;
+  int   accumulate;
 };
 
 // Structure used for retrieving the primitive information in the closest hit
 // using gl_InstanceCustomIndexNV
-struct InstanceData
-{
+struct InstanceData {
   uint64_t vertexAddress;
   uint64_t indexAddress;
   int      materialIndex;
 };
-
 
 // KHR_lights_punctual extension.
 // see https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_lights_punctual
@@ -219,8 +210,7 @@ const int LightType_Directional = 0;
 const int LightType_Point       = 1;
 const int LightType_Spot        = 2;
 
-struct Light
-{
+struct Light {
   vec3  direction;
   float range;
 
@@ -237,8 +227,7 @@ struct Light
 };
 
 // Environment acceleration structure - computed in hdr_sampling
-struct EnvAccel
-{
+struct EnvAccel {
   uint  alias;
   float q;
   float pdf;
@@ -246,8 +235,7 @@ struct EnvAccel
 };
 
 // Tonemapper used in post.frag
-struct Tonemapper
-{
+struct Tonemapper {
   float brightness;
   float contrast;
   float saturation;
@@ -260,9 +248,7 @@ struct Tonemapper
   float key;     // Log-average luminance
 };
 
-
-struct SunAndSky
-{
+struct SunAndSky {
   vec3  rgb_unit_conversion;
   float multiplier;
 
@@ -285,6 +271,5 @@ struct SunAndSky
   int   physically_scaled_sun;
   int   in_use;
 };
-
 
 #endif  // COMMON_HOST_DEVICE

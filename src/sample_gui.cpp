@@ -17,25 +17,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 /*
  *  This implements all graphical user interface of SampleExample.
  */
-
 
 #include <bitset>  // std::bitset
 #include <iomanip>
 #include <sstream>
 
 #include "nvmath/nvmath.h"
-
+//
 #include "imgui_helper.h"
 #include "imgui_orient.h"
 #include "rtx_pipeline.hpp"
 #include "sample_example.hpp"
+//
 #include "sample_gui.hpp"
 #include "tools.hpp"
-
+//
 #include "nvml_monitor.hpp"
 #ifdef _WIN32
 #include <commdlg.h>
@@ -50,37 +49,39 @@ extern NvmlMonitor g_nvml;  // GPU load and memory
 //--------------------------------------------------------------------------------------------------
 // Main rendering function for all
 //
-void SampleGUI::render(nvvk::ProfilerVK& profiler)
-{
+void SampleGUI::render(nvvk::ProfilerVK& profiler) {
   // Show UI panel window.
   float panelAlpha = 1.0f;
-  if(_se->showGui())
-  {
+  if (_se->showGui()) {
     ImGuiH::Control::style.ctrlPerc = 0.55f;
     ImGuiH::Panel::Begin(ImGuiH::Panel::Side::Right, panelAlpha);
 
     using Gui = ImGuiH::Control;
     bool changed{false};
 
-    if(ImGui::CollapsingHeader("Camera" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    if (ImGui::CollapsingHeader("Camera" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
       changed |= guiCamera();
-    if(ImGui::CollapsingHeader("Ray Tracing" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    if (ImGui::CollapsingHeader("Ray Tracing" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
       changed |= guiRayTracing();
-    if(ImGui::CollapsingHeader("Tonemapper" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    if (ImGui::CollapsingHeader("Tonemapper" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
       changed |= guiTonemapper();
-    if(ImGui::CollapsingHeader("Environment" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    if (ImGui::CollapsingHeader("Environment" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
       changed |= guiEnvironment();
-    if(ImGui::CollapsingHeader("Stats"))
-    {
-      Gui::Group<bool>("Scene Info", false, [&] { return guiStatistics(); });
-      Gui::Group<bool>("Profiler", false, [&] { return guiProfiler(profiler); });
-      Gui::Group<bool>("Plot", false, [&] { return guiGpuMeasures(); });
+    if (ImGui::CollapsingHeader("Stats")) {
+      Gui::Group<bool>("Scene Info", false, [&] {
+        return guiStatistics();
+      });
+      Gui::Group<bool>("Profiler", false, [&] {
+        return guiProfiler(profiler);
+      });
+      Gui::Group<bool>("Plot", false, [&] {
+        return guiGpuMeasures();
+      });
     }
     ImGui::TextWrapped("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                        ImGui::GetIO().Framerate);
 
-    if(changed)
-    {
+    if (changed) {
       _se->resetFrame();
     }
 
@@ -88,15 +89,12 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler)
   }
 
   // Rendering region is different if the side panel is visible
-  if(panelAlpha >= 1.0f && _se->showGui())
-  {
+  if (panelAlpha >= 1.0f && _se->showGui()) {
     ImVec2 pos, size;
     ImGuiH::Panel::CentralDimension(pos, size);
     _se->setRenderRegion(VkRect2D{VkOffset2D{static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.y)},
                                   VkExtent2D{static_cast<uint32_t>(size.x), static_cast<uint32_t>(size.y)}});
-  }
-  else
-  {
+  } else {
     _se->setRenderRegion(VkRect2D{{}, _se->getSize()});
   }
 }
@@ -104,8 +102,7 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler)
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiCamera()
-{
+bool SampleGUI::guiCamera() {
   bool changed{false};
   changed |= ImGuiH::CameraWidget();
   auto& cam = _se->m_scene.getCamera();
@@ -117,8 +114,7 @@ bool SampleGUI::guiCamera()
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiRayTracing()
-{
+bool SampleGUI::guiRayTracing() {
   auto  Normal = ImGuiH::Control::Flags::Normal;
   bool  changed{false};
   auto& rtxState(_se->m_rtxState);
@@ -131,15 +127,15 @@ bool SampleGUI::guiRayTracing()
                           "Speeding up rendering while camera moves.\n"
                           "Value of 1, will not de-scale",
                           &_se->m_descalingLevel, nullptr, Normal, 1, 8);
+  changed |= GuiH::Slider("Accumulate", "Enable accumulation over multiple frames", &rtxState.accumulate, nullptr);
 
   changed |= GuiH::Selection("Pbr Mode", "PBR material model", &rtxState.pbrMode, nullptr, Normal, {"Disney", "Gltf"});
 
   static bool bAnyHit = true;
-  if(_se->m_rndMethod == SampleExample::RndMethod::eRtxPipeline)
-  {
-    if(GuiH::Checkbox("Enable AnyHit", "AnyHit is used for double sided, cutout opacity, but can be slower when all objects are opaque",
-                      &bAnyHit, nullptr))
-    {
+  if (_se->m_rndMethod == SampleExample::RndMethod::eRtxPipeline) {
+    if (GuiH::Checkbox("Enable AnyHit",
+                       "AnyHit is used for double sided, cutout opacity, but can be slower when all objects are opaque",
+                       &bAnyHit, nullptr)) {
       auto rtx = dynamic_cast<RtxPipeline*>(_se->m_pRender[_se->m_rndMethod]);
       vkDeviceWaitIdle(_se->m_device);  // cannot run while changing this
       rtx->useAnyHit(bAnyHit);
@@ -148,25 +144,26 @@ bool SampleGUI::guiRayTracing()
   }
 
   GuiH::Group<bool>("Debugging", false, [&] {
-    changed |= GuiH::Selection("Debug Mode", "Display unique values of material", &rtxState.debugging_mode, nullptr, Normal,
-                               {
-                                   "No Debug",
-                                   "BaseColor",
-                                   "Normal",
-                                   "Metallic",
-                                   "Emissive",
-                                   "Alpha",
-                                   "Roughness",
-                                   "TexCoord",
-                                   "Tangent",
-                                   "Radiance",
-                                   "Weight",
-                                   "RayDir",
-                                   "HeatMap",
-                               });
+    changed |=
+      GuiH::Selection("Debug Mode", "Display unique values of material", &rtxState.debugging_mode, nullptr, Normal,
+                      {
+                        "No Debug",
+                        "BaseColor",
+                        "Normal",
+                        "Metallic",
+                        "Emissive",
+                        "Alpha",
+                        "Roughness",
+                        "TexCoord",
+                        "Tangent",
+                        "Depth",
+                        "Radiance",
+                        "Weight",
+                        "RayDir",
+                        "HeatMap",
+                      });
 
-    if(rtxState.debugging_mode == eHeatmap)
-    {
+    if (rtxState.debugging_mode == eHeatmap) {
       changed |= GuiH::Drag("Min Heat map", "Minimum timing value, below this value it will be blue",
                             &rtxState.minHeatmap, nullptr, Normal, 0, 1'000'000, 100);
       changed |= GuiH::Drag("Max Heat map", "Maximum timing value, above this value it will be red",
@@ -175,12 +172,10 @@ bool SampleGUI::guiRayTracing()
     return changed;
   });
 
-  if(_se->m_supportRayQuery)
-  {
-    SampleExample::RndMethod method = _se->m_rndMethod;  //renderMethod;
-    if(GuiH::Selection<int>("Rendering Pipeline", "Choose the type of rendering", (int*)&method, nullptr,
-                            GuiH::Control::Flags::Normal, {"Rtx", "Compute"}))
-    {
+  if (_se->m_supportRayQuery) {
+    SampleExample::RndMethod method = _se->m_rndMethod;  // renderMethod;
+    if (GuiH::Selection<int>("Rendering Pipeline", "Choose the type of rendering", (int*)&method, nullptr,
+                             GuiH::Control::Flags::Normal, {"Rtx", "Compute"})) {
       _se->createRender(method);
       //      _se->renderMethod = method;
       changed = true;
@@ -191,20 +186,18 @@ bool SampleGUI::guiRayTracing()
   return changed;
 }
 
-
-bool SampleGUI::guiTonemapper()
-{
+bool SampleGUI::guiTonemapper() {
   static Tonemapper default_tm{
-      1.0f,          // brightness;
-      1.0f,          // contrast;
-      1.0f,          // saturation;
-      0.0f,          // vignette;
-      1.0f,          // avgLum;
-      1.0f,          // zoom;
-      {1.0f, 1.0f},  // renderingRatio;
-      0,             // autoExposure;
-      0.5f,          // Ywhite;  // Burning white
-      0.5f,          // key;     // Log-average luminance
+    1.0f,          // brightness;
+    1.0f,          // contrast;
+    1.0f,          // saturation;
+    0.0f,          // vignette;
+    1.0f,          // avgLum;
+    1.0f,          // zoom;
+    {1.0f, 1.0f},  // renderingRatio;
+    0,             // autoExposure;
+    0.5f,          // Ywhite;  // Burning white
+    0.5f,          // key;     // Log-average luminance
   };
 
   auto&          tm = _se->m_offscreen.m_tonemapper;
@@ -214,15 +207,14 @@ bool SampleGUI::guiTonemapper()
   bool autoExposure = b.test(0);
 
   changed |= GuiH::Checkbox("Auto Exposure", "Adjust exposure", (bool*)&autoExposure);
-  changed |= GuiH::Slider("Exposure", "Scene Exposure", &tm.avgLum, &default_tm.avgLum, GuiH::Flags::Normal, 0.001f, 5.00f);
+  changed |=
+    GuiH::Slider("Exposure", "Scene Exposure", &tm.avgLum, &default_tm.avgLum, GuiH::Flags::Normal, 0.001f, 5.00f);
   changed |= GuiH::Slider("Brightness", "", &tm.brightness, &default_tm.brightness, GuiH::Flags::Normal, 0.0f, 2.0f);
   changed |= GuiH::Slider("Contrast", "", &tm.contrast, &default_tm.contrast, GuiH::Flags::Normal, 0.0f, 2.0f);
   changed |= GuiH::Slider("Saturation", "", &tm.saturation, &default_tm.saturation, GuiH::Flags::Normal, 0.0f, 5.0f);
   changed |= GuiH::Slider("Vignette", "", &tm.vignette, &default_tm.vignette, GuiH::Flags::Normal, 0.0f, 2.0f);
 
-
-  if(autoExposure)
-  {
+  if (autoExposure) {
     bool localExposure = b.test(1);
     GuiH::Group<bool>("Auto Settings", true, [&] {
       changed |= GuiH::Checkbox("Local", "", &localExposure);
@@ -241,25 +233,24 @@ bool SampleGUI::guiTonemapper()
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiEnvironment()
-{
+bool SampleGUI::guiEnvironment() {
   static SunAndSky dss{
-      {1, 1, 1},            // rgb_unit_conversion;
-      0.0000101320f,        // multiplier;
-      0.0f,                 // haze;
-      0.0f,                 // redblueshift;
-      1.0f,                 // saturation;
-      0.0f,                 // horizon_height;
-      {0.4f, 0.4f, 0.4f},   // ground_color;
-      0.1f,                 // horizon_blur;
-      {0.0, 0.0, 0.01f},    // night_color;
-      0.8f,                 // sun_disk_intensity;
-      {0.00, 0.78, 0.62f},  // sun_direction;
-      5.0f,                 // sun_disk_scale;
-      1.0f,                 // sun_glow_intensity;
-      1,                    // y_is_up;
-      1,                    // physically_scaled_sun;
-      0,                    // in_use;
+    {1, 1, 1},            // rgb_unit_conversion;
+    0.0000101320f,        // multiplier;
+    0.0f,                 // haze;
+    0.0f,                 // redblueshift;
+    1.0f,                 // saturation;
+    0.0f,                 // horizon_height;
+    {0.4f, 0.4f, 0.4f},   // ground_color;
+    0.1f,                 // horizon_blur;
+    {0.0, 0.0, 0.01f},    // night_color;
+    0.8f,                 // sun_disk_intensity;
+    {0.00, 0.78, 0.62f},  // sun_direction;
+    5.0f,                 // sun_disk_scale;
+    1.0f,                 // sun_glow_intensity;
+    1,                    // y_is_up;
+    1,                    // physically_scaled_sun;
+    0,                    // in_use;
   };
 
   bool  changed{false};
@@ -274,8 +265,7 @@ bool SampleGUI::guiEnvironment()
   CameraManip.getLookat(eye, center, up);
   sunAndSky.y_is_up = (up.y == 1);
 
-  if(sunAndSky.in_use)
-  {
+  if (sunAndSky.in_use) {
     GuiH::Group<bool>("Sun", true, [&] {
       changed |= GuiH::Custom("Direction", "Sun Direction", [&] {
         float indent = ImGui::GetCursorPos().x;
@@ -286,7 +276,8 @@ bool SampleGUI::guiEnvironment()
         changed |= ImGui::InputFloat3("##IG", &sunAndSky.sun_direction.x);
         return changed;
       });
-      changed |= GuiH::Slider("Disk Scale", "", &sunAndSky.sun_disk_scale, &dss.sun_disk_scale, GuiH::Flags::Normal, 0.f, 100.f);
+      changed |=
+        GuiH::Slider("Disk Scale", "", &sunAndSky.sun_disk_scale, &dss.sun_disk_scale, GuiH::Flags::Normal, 0.f, 100.f);
       changed |= GuiH::Slider("Glow Intensity", "", &sunAndSky.sun_glow_intensity, &dss.sun_glow_intensity,
                               GuiH::Flags::Normal, 0.f, 5.f);
       changed |= GuiH::Slider("Disk Intensity", "", &sunAndSky.sun_disk_intensity, &dss.sun_disk_intensity,
@@ -296,8 +287,10 @@ bool SampleGUI::guiEnvironment()
     });
 
     GuiH::Group<bool>("Ground", true, [&] {
-      changed |= GuiH::Slider("Horizon Height", "", &sunAndSky.horizon_height, &dss.horizon_height, GuiH::Flags::Normal, -1.f, 1.f);
-      changed |= GuiH::Slider("Horizon Blur", "", &sunAndSky.horizon_blur, &dss.horizon_blur, GuiH::Flags::Normal, 0.f, 1.f);
+      changed |= GuiH::Slider("Horizon Height", "", &sunAndSky.horizon_height, &dss.horizon_height, GuiH::Flags::Normal,
+                              -1.f, 1.f);
+      changed |=
+        GuiH::Slider("Horizon Blur", "", &sunAndSky.horizon_blur, &dss.horizon_blur, GuiH::Flags::Normal, 0.f, 1.f);
       changed |= GuiH::Color("Ground Color", "", &sunAndSky.ground_color.x, &dss.ground_color.x, GuiH::Flags::Normal);
       changed |= GuiH::Slider("Haze", "", &sunAndSky.haze, &dss.haze, GuiH::Flags::Normal, 0.f, 15.f);
       return changed;
@@ -307,8 +300,10 @@ bool SampleGUI::guiEnvironment()
       changed |= GuiH::Drag("Multiplier", "", &sunAndSky.multiplier, &dss.multiplier, GuiH::Flags::Normal, 0.f,
                             std::numeric_limits<float>::max(), 2, "%5.5f");
       changed |= GuiH::Slider("Saturation", "", &sunAndSky.saturation, &dss.saturation, GuiH::Flags::Normal, 0.f, 1.f);
-      changed |= GuiH::Slider("Red Blue Shift", "", &sunAndSky.redblueshift, &dss.redblueshift, GuiH::Flags::Normal, -1.f, 1.f);
-      changed |= GuiH::Color("RGB Conversion", "", &sunAndSky.rgb_unit_conversion.x, &dss.rgb_unit_conversion.x, GuiH::Flags::Normal);
+      changed |=
+        GuiH::Slider("Red Blue Shift", "", &sunAndSky.redblueshift, &dss.redblueshift, GuiH::Flags::Normal, -1.f, 1.f);
+      changed |= GuiH::Color("RGB Conversion", "", &sunAndSky.rgb_unit_conversion.x, &dss.rgb_unit_conversion.x,
+                             GuiH::Flags::Normal);
 
       nvmath::vec3f eye, center, up;
       CameraManip.getLookat(eye, center, up);
@@ -324,33 +319,32 @@ bool SampleGUI::guiEnvironment()
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiStatistics()
-{
+bool SampleGUI::guiStatistics() {
   ImGuiStyle& style    = ImGui::GetStyle();
   auto        pushItem = style.ItemSpacing;
   style.ItemSpacing.y  = -4;  // making the lines more dense
 
   auto& stats = _se->m_scene.getStat();
 
-  if(stats.nbCameras > 0)
+  if (stats.nbCameras > 0)
     GuiH::Info("Cameras", "", FormatNumbers(stats.nbCameras));
-  if(stats.nbImages > 0)
+  if (stats.nbImages > 0)
     GuiH::Info("Images", "", FormatNumbers(stats.nbImages) + " (" + FormatNumbers(stats.imageMem) + ")");
-  if(stats.nbTextures > 0)
+  if (stats.nbTextures > 0)
     GuiH::Info("Textures", "", FormatNumbers(stats.nbTextures));
-  if(stats.nbMaterials > 0)
+  if (stats.nbMaterials > 0)
     GuiH::Info("Material", "", FormatNumbers(stats.nbMaterials));
-  if(stats.nbSamplers > 0)
+  if (stats.nbSamplers > 0)
     GuiH::Info("Samplers", "", FormatNumbers(stats.nbSamplers));
-  if(stats.nbNodes > 0)
+  if (stats.nbNodes > 0)
     GuiH::Info("Nodes", "", FormatNumbers(stats.nbNodes));
-  if(stats.nbMeshes > 0)
+  if (stats.nbMeshes > 0)
     GuiH::Info("Meshes", "", FormatNumbers(stats.nbMeshes));
-  if(stats.nbLights > 0)
+  if (stats.nbLights > 0)
     GuiH::Info("Lights", "", FormatNumbers(stats.nbLights));
-  if(stats.nbTriangles > 0)
+  if (stats.nbTriangles > 0)
     GuiH::Info("Triangles", "", FormatNumbers(stats.nbTriangles));
-  if(stats.nbUniqueTriangles > 0)
+  if (stats.nbUniqueTriangles > 0)
     GuiH::Info("Unique Tri", "", FormatNumbers(stats.nbUniqueTriangles));
   GuiH::Info("Resolution", "", std::to_string(_se->m_size.width) + "x" + std::to_string(_se->m_size.height));
 
@@ -362,10 +356,8 @@ bool SampleGUI::guiStatistics()
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler)
-{
-  struct Info
-  {
+bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
+  struct Info {
     vec2  statRender{0.0f, 0.0f};
     vec2  statTone{0.0f, 0.0f};
     float frameTime{0.0f};
@@ -387,19 +379,17 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler)
     collect.statTone.y += float(info.cpu.average / 1000.0f);
     collect.frameTime += 1000.0f / ImGui::GetIO().Framerate;
 
-    if(_se->m_offscreen.m_tonemapper.autoExposure == 1)
-    {
+    if (_se->m_offscreen.m_tonemapper.autoExposure == 1) {
       profiler.getTimerInfo("Mipmap", info);
       mipmapGen = float(info.gpu.average / 1000.0f);
-      //LOGI("Mipmap Generation: %.2fms\n", info.gpu.average / 1000.0f);
+      // LOGI("Mipmap Generation: %.2fms\n", info.gpu.average / 1000.0f);
     }
   }
 
   // Averaging display of the data every 0.5 seconds
   static float dirtyTimer = 1.0f;
   dirtyTimer += ImGui::GetIO().DeltaTime;
-  if(dirtyTimer >= 0.5f)
-  {
+  if (dirtyTimer >= 0.5f) {
     display.statRender = collect.statRender / dirtyCnt;
     display.statTone   = collect.statTone / dirtyCnt;
     display.frameTime  = collect.frameTime / dirtyCnt;
@@ -411,10 +401,9 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler)
   ImGui::Text("Frame     [ms]: %2.3f", display.frameTime);
   ImGui::Text("Render GPU/CPU [ms]: %2.3f  /  %2.3f", display.statRender.x, display.statRender.y);
   ImGui::Text("Tone+UI GPU/CPU [ms]: %2.3f  /  %2.3f", display.statTone.x, display.statTone.y);
-  if(_se->m_offscreen.m_tonemapper.autoExposure == 1)
+  if (_se->m_offscreen.m_tonemapper.autoExposure == 1)
     ImGui::Text("Mipmap Gen: %2.3fms", mipmapGen);
   ImGui::ProgressBar(display.statRender.x / display.frameTime);
-
 
   return false;
 }
@@ -422,18 +411,16 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler)
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiGpuMeasures()
-{
+bool SampleGUI::guiGpuMeasures() {
 #if defined(NVP_SUPPORTS_NVML)
-  if(g_nvml.isValid() == false)
+  if (g_nvml.isValid() == false)
     ImGui::Text("NVML wasn't loaded");
 
   auto memoryNumbers = [](float n) {  // Memory numbers from nvml are in KB
     static const std::vector<const char*> t{" KB", " MB", " GB", " TB"};
     static char                           s[16];
     int                                   level{0};
-    while(n > 1000)
-    {
+    while (n > 1000) {
       n = n / 1000;
       level++;
     }
@@ -443,7 +430,7 @@ bool SampleGUI::guiGpuMeasures()
 
   uint32_t offset = g_nvml.getOffset();
 
-  for(uint32_t g = 0; g < g_nvml.nbGpu(); g++)  // Number of gpu
+  for (uint32_t g = 0; g < g_nvml.nbGpu(); g++)  // Number of gpu
   {
     const auto& i = g_nvml.getInfo(g);
     const auto& m = g_nvml.getMeasures(g);
@@ -475,11 +462,9 @@ bool SampleGUI::guiGpuMeasures()
       datas[1].scale_min     = 0;
       datas[1].scale_max     = float(i.max_mem);
 
-
       std::string overlay = std::to_string((int)m.load[offset]) + " %";
       ImGui::PlotMultiEx("##NoName", 2, datas, overlay.c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 150));
     }
-
 
     ImGui::Text("CPU");
     {
@@ -504,17 +489,14 @@ bool SampleGUI::guiGpuMeasures()
   return false;
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // This is displaying information in the titlebar
 //
-void SampleGUI::titleBar()
-{
+void SampleGUI::titleBar() {
   static float dirtyTimer = 0.0f;
 
   dirtyTimer += ImGui::GetIO().DeltaTime;
-  if(dirtyTimer > 1)
-  {
+  if (dirtyTimer > 1) {
     std::stringstream o;
     o << "VK glTF Viewer";
     o << " | " << _se->m_scene.getSceneName();                                                   // Scene name
@@ -522,14 +504,14 @@ void SampleGUI::titleBar()
     o << " | " << static_cast<int>(ImGui::GetIO().Framerate)                                     // FPS / ms
       << " FPS / " << std::setprecision(3) << 1000.F / ImGui::GetIO().Framerate << "ms";
 #if defined(NVP_SUPPORTS_NVML)
-    if(g_nvml.isValid())  // Graphic card, driver
+    if (g_nvml.isValid())  // Graphic card, driver
     {
       const auto& i = g_nvml.getInfo(0);
       o << " | " << i.name;
       o << " | " << g_nvml.getSysInfo().driverVersion;
     }
 #endif
-    if(_se->m_rndMethod != SampleExample::eNone && _se->m_pRender[_se->m_rndMethod] != nullptr)
+    if (_se->m_rndMethod != SampleExample::eNone && _se->m_pRender[_se->m_rndMethod] != nullptr)
       o << " | " << _se->m_pRender[_se->m_rndMethod]->name();
     glfwSetWindowTitle(_se->m_window, o.str().c_str());
     dirtyTimer = 0;
@@ -539,8 +521,7 @@ void SampleGUI::titleBar()
 //--------------------------------------------------------------------------------------------------
 //
 //
-void SampleGUI::menuBar()
-{
+void SampleGUI::menuBar() {
   auto openFilename = [](const char* filter) {
 #ifdef _WIN32
     char          filename[MAX_PATH] = {0};
@@ -555,8 +536,7 @@ void SampleGUI::menuBar()
     ofn.lpstrTitle  = "Select a File";
     ofn.Flags       = OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST;
 
-    if(GetOpenFileNameA(&ofn))
-    {
+    if (GetOpenFileNameA(&ofn)) {
       return std::string(filename);
     }
 #endif
@@ -564,24 +544,20 @@ void SampleGUI::menuBar()
     return std::string("");
   };
 
-
   // Menu Bar
-  if(ImGui::BeginMainMenuBar())
-  {
-    if(ImGui::BeginMenu("File"))
-    {
-      if(ImGui::MenuItem("Open GLTF Scene"))
+  if (ImGui::BeginMainMenuBar()) {
+    if (ImGui::BeginMenu("File")) {
+      if (ImGui::MenuItem("Open GLTF Scene"))
         _se->loadAssets(openFilename("GLTF Files\0*.gltf;*.glb\0\0").c_str());
-      if(ImGui::MenuItem("Open HDR Environment"))
+      if (ImGui::MenuItem("Open HDR Environment"))
         _se->loadAssets(openFilename("HDR Files\0*.hdr\0\0").c_str());
       ImGui::Separator();
-      if(ImGui::MenuItem("Quit", "ESC"))
+      if (ImGui::MenuItem("Quit", "ESC"))
         glfwSetWindowShouldClose(_se->m_window, 1);
       ImGui::EndMenu();
     }
 
-    if(ImGui::BeginMenu("Tools"))
-    {
+    if (ImGui::BeginMenu("Tools")) {
       ImGui::MenuItem("Settings", "F10", &_se->m_show_gui);
       ImGui::MenuItem("Axis", nullptr, &_se->m_showAxis);
       ImGui::EndMenu();
@@ -591,12 +567,10 @@ void SampleGUI::menuBar()
   }
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // Display a static window when loading assets
 //
-void SampleGUI::showBusyWindow()
-{
+void SampleGUI::showBusyWindow() {
   static int   nb_dots   = 0;
   static float deltaTime = 0;
   bool         show      = true;
@@ -604,8 +578,7 @@ void SampleGUI::showBusyWindow()
   size_t       height    = 60;
 
   deltaTime += ImGui::GetIO().DeltaTime;
-  if(deltaTime > .25)
-  {
+  if (deltaTime > .25) {
     deltaTime = 0;
     nb_dots   = ++nb_dots % 10;
   }
@@ -615,10 +588,10 @@ void SampleGUI::showBusyWindow()
 
   ImGui::SetNextWindowBgAlpha(0.75f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 15.0);
-  if(ImGui::Begin("##notitle", &show,
-                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
-                      | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMouseInputs))
-  {
+  if (ImGui::Begin("##notitle", &show,
+                   ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMouseInputs)) {
     ImVec2 available = ImGui::GetContentRegionAvail();
 
     ImVec2 text_size = ImGui::CalcTextSize(_se->m_busyReasonText.c_str(), nullptr, false, available.x);

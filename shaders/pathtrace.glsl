@@ -74,6 +74,16 @@ vec3 DebugInfo(in State state)
       return vec3(state.mat.alpha);
     case eRoughness:
       return vec3(state.mat.roughness);
+    case eDepth:
+    {
+      float maxDepth = 50.0;
+      vec3  cameraPosition = (sceneCamera.viewInverse * vec4(0, 0, 0, 1)).xyz;
+      float distance = length(state.position - cameraPosition);
+      distance = clamp(distance,0.0,maxDepth);
+      vec3 color  = (1 - vec3(distance)/maxDepth)* (1 - vec3(distance)/maxDepth);
+      return color;
+
+    }
     case eTexcoord:
       return vec3(state.texCoord, 0);
     case eTangent:
@@ -359,7 +369,7 @@ vec3 samplePixel(ivec2 imageCoords, ivec2 sizeImage)
 
   // Compute ray origin and direction
   vec4 origin    = sceneCamera.viewInverse * vec4(0, 0, 0, 1);
-  vec4 target    = sceneCamera.projInverse * vec4(d.x, d.y, 1, 1);
+  vec4 target    = sceneCamera.projInverse * vec4(d2.x, d2.y, 1, 1);
   vec4 direction = sceneCamera.viewInverse * vec4(normalize(target.xyz), 0);
 
   // Depth-of-Field
