@@ -29,7 +29,7 @@ endif()
 if(NOT BASE_DIRECTORY)
   find_path(BASE_DIRECTORY
     NAMES nvpro_core/cmake/setup.cmake
-    PATHS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR}/../.. 
+    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external 
     REQUIRED
     DOC "Directory containing nvpro_core"
     )
@@ -45,13 +45,11 @@ endif()
 
 
 
-#--------------------------------------------------------------------------------------------------
-# Resources
-#
- download_files(FILENAMES robot_toon.zip EXTRACT)
- download_files(FILENAMES daytime.hdr std_env.hdr)
-
-
+# #--------------------------------------------------------------------------------------------------
+# # Resources
+# #
+#  download_files(FILENAMES robot_toon.zip EXTRACT)
+#  download_files(FILENAMES daytime.hdr std_env.hdr)
 
 #--------------------------------------------------------------------------------------------------
 # Packages
@@ -61,7 +59,9 @@ _add_package_FreeImage()
 # Add the following for GPU load and memory
 _add_package_NVML()
 # This should be added after all packages
+_add_package_tracy()
 _add_nvpro_core_lib()
+
 
 #--------------------------------------------------------------------------------------------------
 # Memory Allocation
@@ -110,21 +110,23 @@ target_sources(${PROJNAME} PUBLIC ${GLSL_SOURCES})
 target_sources(${PROJNAME} PUBLIC ${GLSL_HEADERS})
 
 
-#--------------------------------------------------------------------------------------------------
-# Sub-folders in Visual Studio
-#
-source_group("Common"         FILES ${COMMON_SOURCE_FILES} ${PACKAGE_SOURCE_FILES})
-source_group("Sources"        FILES ${SOURCE_FILES})
-source_group("Header Files"   FILES ${HEADER_FILES})
-source_group("Shader Sources" FILES ${GLSL_SOURCES})
-source_group("Shader Headers" FILES ${GLSL_HEADERS})
+
+# #--------------------------------------------------------------------------------------------------
+# # Sub-folders in Visual Studio
+# #
+# source_group("Common"         FILES ${COMMON_SOURCE_FILES} ${PACKAGE_SOURCE_FILES})
+# source_group("Sources"        FILES ${SOURCE_FILES})
+# source_group("Header Files"   FILES ${HEADER_FILES})
+# source_group("Shader Sources" FILES ${GLSL_SOURCES})
+# source_group("Shader Headers" FILES ${GLSL_HEADERS})
 
 
 
 #####################################################################################
 # Linkage
 #
-target_link_libraries(${PROJNAME} ${PLATFORM_LIBRARIES} nvpro_core)
+target_link_libraries(${PROJNAME} ${PLATFORM_LIBRARIES} nvpro_core tracy)
+add_compile_options(-O3 -flto -DNDEBUG -g -DTRACY_ENABLE)
 
 foreach(DEBUGLIB ${LIBRARIES_DEBUG})
   target_link_libraries(${PROJNAME} debug ${DEBUGLIB})
