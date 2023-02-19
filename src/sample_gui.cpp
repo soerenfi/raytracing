@@ -27,7 +27,9 @@
 
 #include "nvmath/nvmath.h"
 //
+#include "imgui.h"
 #include "imgui_helper.h"
+#include "imgui_internal.h"
 #include "imgui_orient.h"
 #include "rtx_pipeline.hpp"
 #include "sample_example.hpp"
@@ -50,53 +52,195 @@ extern NvmlMonitor g_nvml;  // GPU load and memory
 // Main rendering function for all
 //
 void SampleGUI::render(nvvk::ProfilerVK& profiler) {
+  static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;  // | ImGuiDockNodeFlags_DockSpace;
+
+  // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
+  // because it would be confusing to have two docking targets within each others.
+  ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+  // if (m_MenubarCallback)
+  //   window_flags |= ImGuiWindowFlags_MenuBar;
+
+  const ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+  ImVec2 viewport_pos  = viewport->Pos;
+  ImVec2 viewport_size = viewport->Size;
+  // future: viewport->GetWorkRect(); GetWorkPos();
+  viewport_pos.y += ImGui::GetFrameHeight();
+  viewport_size.y -= ImGui::GetFrameHeight();
+  ImGui::SetNextWindowPos(viewport_pos);
+  ImGui::SetNextWindowSize(viewport_size);
+  ImGui::SetNextWindowViewport(viewport->ID);
+
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.2f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+  window_flags |= ImGuiWindowFlags_NoTitleBar    //
+                  | ImGuiWindowFlags_NoCollapse  //
+                  | ImGuiWindowFlags_NoResize    //
+                  | ImGuiWindowFlags_NoMove;
+
+  window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+  // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
+  // and handle the pass-thru hole, so we ask Begin() to not render a background.
+  if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
+    window_flags |= ImGuiWindowFlags_NoBackground;
+
+  // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
+  // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
+  // all active windows docked into it will lose their parent and become undocked.
+  // We cannot preserve the docking relationship between an active window and an inactive docking, otherwise
+  // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+  ImGui::Begin("DockSpace", nullptr, window_flags);
+  ImGui::PopStyleVar();
+
+  ImGui::PopStyleVar(2);
+
+  // Submit the DockSpace
+  ImGuiIO& io = ImGui::GetIO();
+
+  // ImGuiID dockspace_id = ImGui::GetID("VulkanAppDockspace");
+  // ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+  // // ImGui::DockBuilderRemoveNode(dockspace_id);
+  // // ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_None);
+  // ImGui::DockBuilderRemoveNode(dockspace_id);  // Clear out existing layout
+  // ImGui::DockBuilderAddNode(dockspace_id);     // Add empty node
+  // ImGui::DockBuilderSetNodeSize(dockspace_id, main_viewport->Size);
+
+  // // ImGuiID dock_up_id    = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Up, 0.05f, nullptr, &dockspace_id);
+  // ImGuiID dock_right_id = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.2f, nullptr, &dockspace_id);
+  // ImGuiID dock_left_id  = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, nullptr, &dockspace_id);
+  // // ImGuiID dock_down_id  = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.2f, nullptr, &dockspace_id);
+  // // ImGui::DockBuilderDockWindow("Viewport", dockspace_id);
+
+  // ImGui::DockBuilderFinish(dockspace_id);
+
+  if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+    // ImGui::DockSpaceOverViewport();
+
+    ImVec2 size = viewport->Size;
+    // size.y -= 40;
+    // pos.y += 40;
+    ImGui::DockSpace(dockspace_id, size, dockspace_flags);
+
+    static auto first_time = true;
+    if (first_time) {
+      first_time = false;
+
+      ImGui::DockBuilderRemoveNode(dockspace_id);  // clear any previous layout
+      ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
+      ImGui::DockBuilderSetNodeSize(dockspace_id, size);
+      // ImGui::DockBuilderSetNodePos(dockspace_id, pos);
+
+      // split the dockspace into 2 nodes -- DockBuilderSplitNode takes in the following args in the following order
+      //   window ID to split, direction, fraction (between 0 and 1), the final two setting let's us choose which id
+      //   we want (which ever one we DON'T set as NULL, will be returned by the function)
+      //                                                              out_id_at_dir is the id of the node in the
+      //                                                              direction we specified earlier,
+      //                                                              out_id_at_opposite_dir is in the opposite
+      //                                                              direction
+      auto dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.2f, nullptr, &dockspace_id);
+      auto dock_id_down  = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.25f, nullptr, &dockspace_id);
+
+      // we now dock our windows into the docking node we made above
+      ImGui::DockBuilderDockWindow("Viewport", dockspace_id);
+      ImGui::DockBuilderDockWindow("Settings", dock_id_right);
+      ImGui::DockBuilderDockWindow("Settings2", dock_id_right);
+      ImGui::DockBuilderFinish(dockspace_id);
+    }
+  }
+
+  ImGui::End();
+
+  // if (m_MenubarCallback)
+  // {
+  //   if (ImGui::BeginMenuBar())
+  //   {
+  //     m_MenubarCallback();
+  //     ImGui::EndMenuBar();
+  //   }
+  // }
+
   // Show UI panel window.
-  float panelAlpha = 1.0f;
-  if (_se->showGui()) {
-    ImGuiH::Control::style.ctrlPerc = 0.55f;
-    ImGuiH::Panel::Begin(ImGuiH::Panel::Side::Right, panelAlpha);
+  ImGui::Begin("Settings");
 
-    using Gui = ImGuiH::Control;
-    bool changed{false};
+  using Gui = ImGuiH::Control;
+  bool changed{false};
 
-    if (ImGui::CollapsingHeader("Camera" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
-      changed |= guiCamera();
-    if (ImGui::CollapsingHeader("Ray Tracing" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
-      changed |= guiRayTracing();
-    if (ImGui::CollapsingHeader("Tonemapper" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
-      changed |= guiTonemapper();
-    if (ImGui::CollapsingHeader("Environment" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
-      changed |= guiEnvironment();
-    if (ImGui::CollapsingHeader("Stats")) {
-      Gui::Group<bool>("Scene Info", false, [&] {
-        return guiStatistics();
-      });
-      Gui::Group<bool>("Profiler", false, [&] {
-        return guiProfiler(profiler);
-      });
-      Gui::Group<bool>("Plot", false, [&] {
-        return guiGpuMeasures();
-      });
-    }
-    ImGui::TextWrapped("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                       ImGui::GetIO().Framerate);
+  if (ImGui::CollapsingHeader("Camera" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    changed |= guiCamera();
+  if (ImGui::CollapsingHeader("Ray Tracing" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    changed |= guiRayTracing();
+  if (ImGui::CollapsingHeader("Tonemapper" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    changed |= guiTonemapper();
+  if (ImGui::CollapsingHeader("Environment" /*, ImGuiTreeNodeFlags_DefaultOpen*/))
+    changed |= guiEnvironment();
+  if (ImGui::CollapsingHeader("Stats")) {
+    Gui::Group<bool>("Scene Info", false, [&] {
+      return guiStatistics();
+    });
+    Gui::Group<bool>("Profiler", false, [&] {
+      return guiProfiler(profiler);
+    });
+    Gui::Group<bool>("Plot", false, [&] {
+      return guiGpuMeasures();
+    });
+  }
+  ImGui::TextWrapped("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+                     ImGui::GetIO().Framerate);
 
-    if (changed) {
-      _se->resetFrame();
-    }
-
-    ImGui::End();  // ImGui::Panel::end()
+  if (changed) {
+    _se->resetFrame();
   }
 
-  // Rendering region is different if the side panel is visible
-  if (panelAlpha >= 1.0f && _se->showGui()) {
-    ImVec2 pos, size;
-    ImGuiH::Panel::CentralDimension(pos, size);
-    _se->setRenderRegion(VkRect2D{VkOffset2D{static_cast<int32_t>(pos.x), static_cast<int32_t>(pos.y)},
-                                  VkExtent2D{static_cast<uint32_t>(size.x), static_cast<uint32_t>(size.y)}});
-  } else {
-    _se->setRenderRegion(VkRect2D{{}, _se->getSize()});
-  }
+  ImGui::End();
+  ImGui::Begin("Settings2");
+  ImGui::TextWrapped("Hello");
+  ImGui::End();
+
+  // ImGui::ShowMetricsWindow();
+
+  ImVec2 pos, size;
+  ImGuiH::Panel::CentralDimension(pos, size);
+
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+  ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 20, viewport->WorkPos.y + 40), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(1024, 768), ImGuiCond_FirstUseEver);
+  ImGui::Begin("Viewport");
+  // ImGui::DockBuilderDockWindow("Viewport", dockspace_id);
+
+  ImVec2 offset            = ImGui::GetWindowPos();
+  ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+
+  // quick workaround: shift rendering to viewport window
+  _se->setRenderRegion(
+    VkRect2D{VkOffset2D{static_cast<int32_t>(offset.x), static_cast<int32_t>(offset.y + 20)},
+             VkExtent2D{static_cast<uint32_t>(viewportPanelSize.x), static_cast<uint32_t>(viewportPanelSize.y)}});
+
+  // ImGui::Image(m_Dset, ImVec2{viewportPanelSize.x, viewportPanelSize.y});
+  // ImTextureID ImGui_ImplVulkan_AddTexture(VkSampler sampler, VkImageView image_view,
+  // VkImageLayout image_layout) void ImGui::Image(ImTextureID user_texture_id, const ImVec2&
+  // size, const ImVec2& uv0 = ImVec2(0, 0),
+  //                   const ImVec2& uv1 = ImVec2(1, 1), const ImVec4& tint_col = ImVec4(1, 1,
+  //                   1, 1), const ImVec4& border_col = ImVec4(0, 0, 0, 0))
+
+  // auto image = renderer_.GetFinalImage();
+  // if (image)
+  // ImTextureID image = ImGui_CreateTexture(_se->m_offscreen.GetFinalImage().image);
+
+  // _se->renderImage =
+  // ImGui_ImplVulkan_AddTexture(_se->m_offscreen.GetFinalImage().descriptor.sampler,
+  //                                                _se->m_offscreen.GetFinalImage().descriptor.imageView,
+  //                                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  // ImGui::Image((void*)renderImage, {viewportPanelSize.x, viewportPanelSize.y}, ImVec2(0, 1),
+  // ImVec2(1, 0));
+  ImGui::End();
+  ImGui::PopStyleVar();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -134,7 +278,8 @@ bool SampleGUI::guiRayTracing() {
   static bool bAnyHit = true;
   if (_se->m_rndMethod == SampleExample::RndMethod::eRtxPipeline) {
     if (GuiH::Checkbox("Enable AnyHit",
-                       "AnyHit is used for double sided, cutout opacity, but can be slower when all objects are opaque",
+                       "AnyHit is used for double sided, cutout opacity, but can be slower "
+                       "when all objects are opaque",
                        &bAnyHit, nullptr)) {
       auto rtx = dynamic_cast<RtxPipeline*>(_se->m_pRender[_se->m_rndMethod]);
       vkDeviceWaitIdle(_se->m_device);  // cannot run while changing this
