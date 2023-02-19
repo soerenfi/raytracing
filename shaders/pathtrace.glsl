@@ -367,9 +367,26 @@ vec3 samplePixel(ivec2 imageCoords, ivec2 sizeImage)
   const vec2 inUV        = pixelCenter / vec2(sizeImage.xy);
   vec2       d           = inUV * 2.0 - 1.0;
 
+  // ivec2 distortionCenter = ivec2(sizeImage.xy.x/2, sizeImage.xy.y/2);
+  // float c0 = 0;
+  // float c1 = 2e-3;
+  // float c2 = 8e-8;
+  // float c3 = -3e-10;
+  // float c4 = 2e-13;
+  // vec2  r2 = (pixelCenter - distortionCenter);
+  // float r = length(r2);
+  // float theta = c0 + c1*r + c2*pow(r,2) + c3 * pow(r,3) + c4 * pow(r,4); // todo calculate before runtime
+  // float horFov = 60 / M_TWO_PI;
+  // float pixelsPerRad = sizeImage.xy.x / horFov; // assume square pixels
+
+  // vec2 d2          =  d * tan(theta);// / pixelsPerRad;
+  // // https://ieeexplore.ieee.org/document/1642666
+  // if (length(d2)> 1 )
+  //   return vec3(0.1,0.3,1.0);
   // Compute ray origin and direction
   vec4 origin    = sceneCamera.viewInverse * vec4(0, 0, 0, 1);
-  vec4 target    = sceneCamera.projInverse * vec4(d2.x, d2.y, 1, 1);
+  vec4 target    = sceneCamera.projInverse * vec4(d.x, d.y, 1, 1);
+  // vec4 target    = sceneCamera.projInverse * vec4(d2.x, d2.y, 1, 1);
   vec4 direction = sceneCamera.viewInverse * vec4(normalize(target.xyz), 0);
 
   // Depth-of-Field
