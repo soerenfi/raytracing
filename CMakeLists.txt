@@ -61,6 +61,7 @@ _add_package_NVML()
 # This should be added after all packages
 _add_package_tracy()
 _add_nvpro_core_lib()
+_add_package_Optix7()
 
 
 #--------------------------------------------------------------------------------------------------
