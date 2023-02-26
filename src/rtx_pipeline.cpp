@@ -17,20 +17,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
-
 /*
  *  Implement the RTX ray tracing pipeline
  */
 
-
+#include "rtx_pipeline.hpp"
 
 #include <future>
 
 #include "nvh/alignment.hpp"
 #include "nvh/fileoperations.hpp"
 #include "nvvk/shaders_vk.hpp"
-#include "rtx_pipeline.hpp"
 #include "scene.hpp"
 #include "tools.hpp"
 
@@ -44,8 +41,8 @@
 //--------------------------------------------------------------------------------------------------
 // Typical resource holder + query for capabilities
 //
-void RtxPipeline::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator)
-{
+void RtxPipeline::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+                        nvvk::ResourceAllocator* allocator) {
   m_device     = device;
   m_pAlloc     = allocator;
   m_queueIndex = familyIndex;
@@ -53,7 +50,8 @@ void RtxPipeline::setup(const VkDevice& device, const VkPhysicalDevice& physical
 
   // Requesting ray tracing properties
   VkPhysicalDeviceProperties2                     properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
-  VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rtProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+  VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rtProperties{
+    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
   properties.pNext = &m_rtProperties;
   vkGetPhysicalDeviceProperties2(physicalDevice, &properties);
 
@@ -63,8 +61,7 @@ void RtxPipeline::setup(const VkDevice& device, const VkPhysicalDevice& physical
 //--------------------------------------------------------------------------------------------------
 // Destroy all allocated resources
 //
-void RtxPipeline::destroy()
-{
+void RtxPipeline::destroy() {
   m_stbWrapper.destroy();
 
   vkDestroyPipeline(m_device, m_rtPipeline, nullptr);
@@ -77,29 +74,28 @@ void RtxPipeline::destroy()
 //--------------------------------------------------------------------------------------------------
 // Creation of the pipeline and layout
 //
-void RtxPipeline::create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts, Scene* scene)
-{
+void RtxPipeline::create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts,
+                         Scene* scene) {
   MilliTimer timer;
   LOGI("Create RtxPipeline");
 
-  m_nbHit = 1;  //scene->getStat().nbMaterials;
+  m_nbHit = 1;  // scene->getStat().nbMaterials;
 
   createPipelineLayout(rtDescSetLayouts);
   createPipeline();
   timer.print();
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // The layout has a push constant and the incoming descriptors are:
 // acceleration structure, offscreen image, scene data, hdr
 //
-void RtxPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts)
-{
+void RtxPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts) {
   vkDestroyPipelineLayout(m_device, m_rtPipelineLayout, nullptr);
 
-  VkPushConstantRange pushConstant{VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-                                   0, sizeof(RtxState)};
+  VkPushConstantRange pushConstant{
+    VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0,
+    sizeof(RtxState)};
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
   pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
@@ -109,23 +105,13 @@ void RtxPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>&
   vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_rtPipelineLayout);
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // Pipeline for the ray tracer: all shaders, raygen, chit, miss
 //
-void RtxPipeline::createPipeline()
-{
+void RtxPipeline::createPipeline() {
   vkDestroyPipeline(m_device, m_rtPipeline, nullptr);
 
-  enum StageIndices
-  {
-    eRaygen,
-    eMiss,
-    eMiss2,
-    eClosestHit,
-    eAnyHit,
-    eShaderGroupCount
-  };
+  enum StageIndices { eRaygen, eMiss, eMiss2, eClosestHit, eAnyHit, eShaderGroupCount };
 
   // All stages
   std::array<VkPipelineShaderStageCreateInfo, eShaderGroupCount> stages{};
@@ -142,7 +128,8 @@ void RtxPipeline::createPipeline()
   stage.stage   = VK_SHADER_STAGE_MISS_BIT_KHR;
   stages[eMiss] = stage;
 
-  // The second miss shader is invoked when a shadow ray misses the geometry. It simply indicates that no occlusion has been found
+  // The second miss shader is invoked when a shadow ray misses the geometry. It simply indicates that no occlusion has
+  // been found
   stage.module   = nvvk::createShaderModule(m_device, pathtraceShadow_rmiss, sizeof(pathtraceShadow_rmiss));
   stage.stage    = VK_SHADER_STAGE_MISS_BIT_KHR;
   stages[eMiss2] = stage;
@@ -156,7 +143,6 @@ void RtxPipeline::createPipeline()
   stage.module    = nvvk::createShaderModule(m_device, pathtrace_rahit, sizeof(pathtrace_rahit));
   stage.stage     = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
   stages[eAnyHit] = stage;
-
 
   // Shader groups
   std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
@@ -185,7 +171,7 @@ void RtxPipeline::createPipeline()
   group.type             = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
   group.generalShader    = VK_SHADER_UNUSED_KHR;
   group.closestHitShader = eClosestHit;
-  if(m_enableAnyhit)
+  if (m_enableAnyhit)
     group.anyHitShader = eAnyHit;
   groups.push_back(group);
 
@@ -205,23 +191,20 @@ void RtxPipeline::createPipeline()
   bool                   useDeferred{true};
   VkResult               result;
   VkDeferredOperationKHR deferredOp{VK_NULL_HANDLE};
-  if(useDeferred)
-  {
+  if (useDeferred) {
     result = vkCreateDeferredOperationKHR(m_device, nullptr, &deferredOp);
     assert(result == VK_SUCCESS);
   }
 
   vkCreateRayTracingPipelinesKHR(m_device, deferredOp, {}, 1, &rayPipelineInfo, nullptr, &m_rtPipeline);
 
-  if(useDeferred)
-  {
+  if (useDeferred) {
     // Query the maximum amount of concurrency and clamp to the desired maximum
     uint32_t maxThreads{8};
     uint32_t numLaunches = std::min(vkGetDeferredOperationMaxConcurrencyKHR(m_device, deferredOp), maxThreads);
 
     std::vector<std::future<void>> joins;
-    for(uint32_t i = 0; i < numLaunches; i++)
-    {
+    for (uint32_t i = 0; i < numLaunches; i++) {
       VkDevice device{m_device};
       joins.emplace_back(std::async(std::launch::async, [device, deferredOp]() {
         // A return of VK_THREAD_IDLE_KHR should queue another job
@@ -229,8 +212,7 @@ void RtxPipeline::createPipeline()
       }));
     }
 
-    for(auto& f : joins)
-    {
+    for (auto& f : joins) {
       f.get();
     }
 
@@ -240,29 +222,27 @@ void RtxPipeline::createPipeline()
     vkDestroyDeferredOperationKHR(m_device, deferredOp, nullptr);
   }
 
-
   // --- SBT ---
   m_stbWrapper.create(m_rtPipeline, rayPipelineInfo);
 
   // --- Clean up ---
-  for(auto& s : stages)
-    vkDestroyShaderModule(m_device, s.module, nullptr);
+  for (auto& s : stages) vkDestroyShaderModule(m_device, s.module, nullptr);
 }
 
 //--------------------------------------------------------------------------------------------------
 // Ray Tracing the scene
 //
-void RtxPipeline::run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler, const std::vector<VkDescriptorSet>& descSets)
-{
+void RtxPipeline::run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler,
+                      const std::vector<VkDescriptorSet>& descSets) {
   LABEL_SCOPE_VK(cmdBuf);
 
   vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rtPipeline);
   vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_rtPipelineLayout, 0,
                           static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
-  vkCmdPushConstants(cmdBuf, m_rtPipelineLayout,
-                     VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-                     0, sizeof(RtxState), &m_state);
-
+  vkCmdPushConstants(
+    cmdBuf, m_rtPipelineLayout,
+    VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0,
+    sizeof(RtxState), &m_state);
 
   auto& regions = m_stbWrapper.getRegions();
   vkCmdTraceRaysKHR(cmdBuf, &regions[0], &regions[1], &regions[2], &regions[3], size.width, size.height, 1);
@@ -271,8 +251,7 @@ void RtxPipeline::run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvv
 //--------------------------------------------------------------------------------------------------
 // Toggle the usage of Anyhit. Not having anyhit can be faster, but the scene must but fully opaque
 //
-void RtxPipeline::useAnyHit(bool enable)
-{
+void RtxPipeline::useAnyHit(bool enable) {
   m_enableAnyhit = enable;
   createPipeline();
 }

@@ -17,25 +17,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 
-#include "nvvk/resourceallocator_vk.hpp"
 #include "nvvk/debug_util_vk.hpp"
 #include "nvvk/descriptorsets_vk.hpp"
-#include "nvvk/sbtwrapper_vk.hpp"
 #include "nvvk/profiler_vk.hpp"
-
+#include "nvvk/resourceallocator_vk.hpp"
+#include "nvvk/sbtwrapper_vk.hpp"
 #include "renderer.h"
 #include "shaders/host_device.h"
 
 using nvvk::SBTWrapper;
 
-
 /*
 
-Creating the RtCore renderer 
-* Requiring:  
+Creating the RtCore renderer
+* Requiring:
   - Acceleration structure (AccelSctruct / Tlas)
   - An image (Post StoreImage)
   - The glTF scene (vertex, index, materials, ... )
@@ -45,21 +42,24 @@ Creating the RtCore renderer
   - create
   - run
 */
-class RtxPipeline : public Renderer
-{
+class RtxPipeline : public Renderer {
 public:
-  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator) override;
+  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+             nvvk::ResourceAllocator* allocator) override;
   void destroy() override;
-  void create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts, Scene* scene) override;
-  void run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler, const std::vector<VkDescriptorSet>& descSets) override;
+  void create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts,
+              Scene* scene) override;
+  void run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler,
+           const std::vector<VkDescriptorSet>& descSets) override;
   void useAnyHit(bool enable);
 
-  const std::string name() override { return std::string("Rtx"); }
+  const std::string name() override {
+    return std::string("RTX");
+  }
 
 private:
   void createPipeline();
   void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts);
-
 
   uint32_t m_nbHit{1};
   bool     m_enableAnyhit{true};
@@ -70,7 +70,6 @@ private:
   nvvk::DebugUtil          m_debug;   // Utility to name objects
   VkDevice                 m_device;
   uint32_t                 m_queueIndex{0};
-
 
   VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rtProperties{};
   VkPipelineLayout                                m_rtPipelineLayout{VK_NULL_HANDLE};

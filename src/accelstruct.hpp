@@ -17,40 +17,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 #include "nvh/gltfscene.hpp"
-#include "nvvk/resourceallocator_vk.hpp"
 #include "nvvk/descriptorsets_vk.hpp"
 #include "nvvk/raytraceKHR_vk.hpp"
-
+#include "nvvk/resourceallocator_vk.hpp"
 
 /*
- 
+
  This is for uploading a glTF scene to an acceleration structure.
  - setup as usual
  - create passing the glTF scene and the buffer of vertices and indices pre-constructed
  - retrieve the TLAS with getTlas
- - get the descriptor set and layout 
+ - get the descriptor set and layout
 
 */
-class AccelStructure
-{
+class AccelStructure {
 public:
-  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator);
+  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+             nvvk::ResourceAllocator* allocator);
   void destroy();
-  void create(nvh::GltfScene& gltfScene, const std::vector<nvvk::Buffer>& vertex, const std::vector<nvvk::Buffer>& index);
+  void create(nvh::GltfScene& gltfScene, const std::vector<nvvk::Buffer>& vertex,
+              const std::vector<nvvk::Buffer>& index);
 
-  VkAccelerationStructureKHR getTlas() { return m_rtBuilder.getAccelerationStructure(); }
-  VkDescriptorSetLayout      getDescLayout() { return m_rtDescSetLayout; }
-  VkDescriptorSet            getDescSet() { return m_rtDescSet; }
+  VkAccelerationStructureKHR getTlas() {
+    return m_rtBuilder.getAccelerationStructure();
+  }
+  VkDescriptorSetLayout getDescLayout() {
+    return m_rtDescSetLayout;
+  }
+  VkDescriptorSet getDescSet() {
+    return m_rtDescSet;
+  }
 
 private:
-  nvvk::RaytracingBuilderKHR::BlasInput primitiveToGeometry(const nvh::GltfPrimMesh& prim, VkBuffer vertex, VkBuffer index);
-  void                                  createBottomLevelAS(nvh::GltfScene& gltfScene, const std::vector<nvvk::Buffer>& vertex, const std::vector<nvvk::Buffer>& index);
-  void                                  createTopLevelAS(nvh::GltfScene& gltfScene);
-  void                                  createRtDescriptorSet();
-
+  nvvk::RaytracingBuilderKHR::BlasInput primitiveToGeometry(const nvh::GltfPrimMesh& prim, VkBuffer vertex,
+                                                            VkBuffer index);
+  void createBottomLevelAS(nvh::GltfScene& gltfScene, const std::vector<nvvk::Buffer>& vertex,
+                           const std::vector<nvvk::Buffer>& index);
+  void createTopLevelAS(nvh::GltfScene& gltfScene);
+  void createRtDescriptorSet();
 
   // Setup
   nvvk::ResourceAllocator* m_pAlloc{nullptr};  // Allocator for buffer, images, acceleration structures

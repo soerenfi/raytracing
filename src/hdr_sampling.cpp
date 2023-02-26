@@ -17,44 +17,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 /*
- *  HDR sampling is loading an HDR image and creating an acceleration structure for 
- *  sampling the environment. 
+ *  HDR sampling is loading an HDR image and creating an acceleration structure for
+ *  sampling the environment.
  */
 
-
 #define _USE_MATH_DEFINES
+#include "hdr_sampling.hpp"
+
 #include <cmath>
 #include <numeric>
 
-#include "stb_image.h"
-#include "nvvk/debug_util_vk.hpp"
-#include "nvvk/commands_vk.hpp"
 #include "nvh/fileoperations.hpp"
-#include "hdr_sampling.hpp"
+#include "nvvk/commands_vk.hpp"
+#include "nvvk/debug_util_vk.hpp"
+#include "stb_image.h"
 
-
-void HdrSampling::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator)
-{
+void HdrSampling::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+                        nvvk::ResourceAllocator* allocator) {
   m_device      = device;
   m_alloc       = allocator;
   m_familyIndex = familyIndex;
   m_debug.setup(device);
 }
 
-void HdrSampling::destroy()
-{
+void HdrSampling::destroy() {
   m_alloc->destroy(m_texHdr);
   m_alloc->destroy(m_accelImpSmpl);
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // Loading the HDR environment texture (HDR) and create the important accel structure
 //
-void HdrSampling::loadEnvironment(const std::string& hrdImage)
-{
+void HdrSampling::loadEnvironment(const std::string& hrdImage) {
   destroy();
 
   int32_t width{0};
@@ -94,7 +89,6 @@ void HdrSampling::loadEnvironment(const std::string& hrdImage)
   }
   m_alloc->finalizeAndReleaseStaging();
 
-
   stbi_image_free(pixels);
 }
 
@@ -104,8 +98,7 @@ void HdrSampling::loadEnvironment(const std::string& hrdImage)
 // This will later allow the sampling shader to uniformly select a texel in the environment, and
 // select either that texel or its alias depending on their relative intensities
 //
-float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<EnvAccel>& accel)
-{
+float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<EnvAccel>& accel) {
   auto size = static_cast<uint32_t>(data.size());
 
   // Compute the integral of the emitted radiance of the environment map
@@ -118,8 +111,7 @@ float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<Env
   // We also initialize the aliases to identity, ie. each texel is its own alias
   auto  fSize          = static_cast<float>(size);
   float inverseAverage = fSize / sum;
-  for(uint32_t i = 0; i < size; ++i)
-  {
+  for (uint32_t i = 0; i < size; ++i) {
     accel[i].q     = data[i] * inverseAverage;
     accel[i].alias = i;
   }
@@ -130,9 +122,8 @@ float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<Env
   std::vector<uint32_t> partitionTable(size);
   uint32_t              s     = 0u;
   uint32_t              large = size;
-  for(uint32_t i = 0; i < size; ++i)
-  {
-    if(accel[i].q < 1.f)
+  for (uint32_t i = 0; i < size; ++i) {
+    if (accel[i].q < 1.f)
       partitionTable[s++] = i;
     else
       partitionTable[--large] = i;
@@ -140,8 +131,7 @@ float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<Env
 
   // Associate the lower-energy texels to higher-energy ones. Since the emission of a high-energy texel may
   // be vastly superior to the average,
-  for(s = 0; s < large && large < size; ++s)
-  {
+  for (s = 0; s < large && large < size; ++s) {
     // Index of the smaller energy texel
     const uint32_t smallEnergyIndex = partitionTable[s];
 
@@ -160,14 +150,14 @@ float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<Env
     // it may not be possible to obtain a value close to average by combining only two texels.
     // Instead, we potentially associate a single high-energy texel to many smaller-energy ones until
     // the combined average is similar to the average of the environment map.
-    // We keep track of the combined average by subtracting the difference between the lower-energy texel and the average
-    // from the ratio stored in the high-energy texel.
+    // We keep track of the combined average by subtracting the difference between the lower-energy texel and the
+    // average from the ratio stored in the high-energy texel.
     accel[highEnergyIndex].q -= differenceWithAverage;
 
     // If the combined ratio to average of the higher-energy texel reaches 1, a balance has been found
     // between a set of low-energy texels and the higher-energy one. In this case, we will use the next
     // higher-energy texel in the partition when processing the next texel.
-    if(accel[highEnergyIndex].q < 1.0f)
+    if (accel[highEnergyIndex].q < 1.0f)
       large++;
   }
   // Return the integral of the emitted radiance. This integral will be used to normalize the probability
@@ -176,16 +166,14 @@ float HdrSampling::buildAliasmap(const std::vector<float>& data, std::vector<Env
 }
 
 // CIE luminance
-inline float luminance(const float* color)
-{
+inline float luminance(const float* color) {
   return color[0] * 0.2126f + color[1] * 0.7152f + color[2] * 0.0722f;
 }
 
 //--------------------------------------------------------------------------------------------------
 // Create acceleration data for importance sampling
 // See:  https://arxiv.org/pdf/1901.05423.pdf
-std::vector<EnvAccel> HdrSampling::createEnvironmentAccel(const float* pixels, VkExtent2D& size)
-{
+std::vector<EnvAccel> HdrSampling::createEnvironmentAccel(const float* pixels, VkExtent2D& size) {
   const uint32_t rx = size.width;
   const uint32_t ry = size.height;
 
@@ -201,15 +189,13 @@ std::vector<EnvAccel> HdrSampling::createEnvironmentAccel(const float* pixels, V
   // subtended by the texel, and store the weighted luminance in importance_data,
   // representing the amount of energy emitted through each texel.
   // Also compute the average CIE luminance to drive the tonemapping of the final image
-  for(uint32_t y = 0; y < ry; ++y)
-  {
+  for (uint32_t y = 0; y < ry; ++y) {
     const float theta1    = float(y + 1) * stepTheta;
     const float cosTheta1 = std::cos(theta1);
     const float area      = (cosTheta0 - cosTheta1) * stepPhi;  // solid angle
     cosTheta0             = cosTheta1;
 
-    for(uint32_t x = 0; x < rx; ++x)
-    {
+    for (uint32_t x = 0; x < rx; ++x) {
       const uint32_t idx          = y * rx + x;
       const uint32_t idx4         = idx * 4;
       float          cieLuminance = luminance(&pixels[idx4]);
@@ -228,8 +214,7 @@ std::vector<EnvAccel> HdrSampling::createEnvironmentAccel(const float* pixels, V
 
   // We deduce the PDF of each texel by normalizing its emitted radiance by the radiance integral
   const float invEnvIntegral = 1.0f / m_integral;
-  for(uint32_t i = 0; i < rx * ry; ++i)
-  {
+  for (uint32_t i = 0; i < rx * ry; ++i) {
     const uint32_t idx4 = i * 4;
     envAccel[i].pdf     = std::max(pixels[idx4], std::max(pixels[idx4 + 1], pixels[idx4 + 2])) * invEnvIntegral;
   }
@@ -238,8 +223,7 @@ std::vector<EnvAccel> HdrSampling::createEnvironmentAccel(const float* pixels, V
   // selected depends on the relative emitted radiances of the two texels.
   // We store the PDF of the alias together with the PDF of the first member, so that both PDFs are
   // available in a single lookup
-  for(uint32_t i = 0; i < rx * ry; ++i)
-  {
+  for (uint32_t i = 0; i < rx * ry; ++i) {
     const uint32_t aliasIdx = envAccel[i].alias;
     envAccel[i].aliasPdf    = envAccel[aliasIdx].pdf;
   }

@@ -17,19 +17,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 /*
  *  Implement ray tracing using Ray-Query in a compute shader.
  *  This allows to compare the speed with RTX, but also to easier debug the shading pipeline,
  *  as it is not building a Mega kernel as the RTX pipeline does.
  */
 
-
+#include "rayquery.hpp"
 
 #include "nvh/alignment.hpp"
 #include "nvh/fileoperations.hpp"
 #include "nvvk/shaders_vk.hpp"
-#include "rayquery.hpp"
 #include "scene.hpp"
 #include "tools.hpp"
 
@@ -38,8 +36,8 @@
 //--------------------------------------------------------------------------------------------------
 //
 //
-void RayQuery::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator)
-{
+void RayQuery::setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+                     nvvk::ResourceAllocator* allocator) {
   m_device     = device;
   m_pAlloc     = allocator;
   m_queueIndex = familyIndex;
@@ -49,8 +47,7 @@ void RayQuery::setup(const VkDevice& device, const VkPhysicalDevice& physicalDev
 //--------------------------------------------------------------------------------------------------
 //
 //
-void RayQuery::destroy()
-{
+void RayQuery::destroy() {
   vkDestroyPipeline(m_device, m_pipeline, nullptr);
   vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
 
@@ -61,8 +58,8 @@ void RayQuery::destroy()
 //--------------------------------------------------------------------------------------------------
 // Creation of the RQ pipeline
 //
-void RayQuery::create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts, Scene* scene)
-{
+void RayQuery::create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& rtDescSetLayouts,
+                      Scene* scene) {
   MilliTimer timer;
   LOGI("Create Ray Query Pipeline");
 
@@ -90,13 +87,12 @@ void RayQuery::create(const VkExtent2D& size, const std::vector<VkDescriptorSetL
   timer.print();
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // Executing the Ray Query compute shader
 //
 #define GROUP_SIZE 8  // Same group size as in compute shader
-void RayQuery::run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler, const std::vector<VkDescriptorSet>& descSets)
-{
+void RayQuery::run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler,
+                   const std::vector<VkDescriptorSet>& descSets) {
   // Preparing for the compute shader
   vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
   vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, 0,

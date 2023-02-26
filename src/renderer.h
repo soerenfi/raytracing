@@ -17,33 +17,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
-#include "nvvk/resourceallocator_vk.hpp"
-#include "nvvk/profiler_vk.hpp"
-
 #include "nvmath/nvmath.h"
+#include "nvvk/profiler_vk.hpp"
+#include "nvvk/resourceallocator_vk.hpp"
 #include "shaders/host_device.h"
 
 // Forward declaration
 class Scene;
 
-class Renderer
-{
+class Renderer {
 public:
-  virtual void              setup(const VkDevice&          device,
-                                  const VkPhysicalDevice&  physicalDevice,
-                                  uint32_t                 familyIndex,
-                                  nvvk::ResourceAllocator* allocator)              = 0;
-  virtual void              destroy()                                              = 0;
-  virtual void              run(const VkCommandBuffer&              cmdBuf,
-                                const VkExtent2D&                   size,
-                                nvvk::ProfilerVK&                   profiler,
-                                const std::vector<VkDescriptorSet>& extraDescSets) = 0;
-  virtual void              create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& extraDescSetsLayout, Scene* _scene = nullptr) = 0;
-  virtual const std::string name() = 0;
-  void                      setPushContants(const RtxState& state) { m_state = state; }
-
+  virtual void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+                     nvvk::ResourceAllocator* allocator)              = 0;
+  virtual void destroy()                                              = 0;
+  virtual void run(const VkCommandBuffer& cmdBuf, const VkExtent2D& size, nvvk::ProfilerVK& profiler,
+                   const std::vector<VkDescriptorSet>& extraDescSets) = 0;
+  virtual void create(const VkExtent2D& size, const std::vector<VkDescriptorSetLayout>& extraDescSetsLayout,
+                      Scene* _scene = nullptr)                        = 0;
+  virtual const std::string name()                                    = 0;
+  void                      setPushContants(const RtxState& state) {
+    m_state = state;
+  }
 
   RtxState m_state{};
 };

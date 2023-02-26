@@ -18,7 +18,7 @@
  */
 
 /*
- *  This implements all graphical user interface of SampleExample.
+ *  This implements all graphical user interface of Simulator.
  */
 
 #include <bitset>  // std::bitset
@@ -32,9 +32,9 @@
 #include "imgui_internal.h"
 #include "imgui_orient.h"
 #include "rtx_pipeline.hpp"
-#include "sample_example.hpp"
+#include "simulator.hpp"
 //
-#include "sample_gui.hpp"
+#include "gui.hpp"
 #include "tools.hpp"
 //
 #include "nvml_monitor.hpp"
@@ -51,7 +51,7 @@ extern NvmlMonitor g_nvml;  // GPU load and memory
 //--------------------------------------------------------------------------------------------------
 // Main rendering function for all
 //
-void SampleGUI::render(nvvk::ProfilerVK& profiler) {
+void SimGUI::render(nvvk::ProfilerVK& profiler) {
   static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;  // | ImGuiDockNodeFlags_DockSpace;
 
   // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
@@ -193,7 +193,7 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler) {
                      ImGui::GetIO().Framerate);
 
   if (changed) {
-    _se->resetFrame();
+    sim_->resetFrame();
   }
 
   ImGui::End();
@@ -217,7 +217,7 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler) {
   ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 
   // quick workaround: shift rendering to viewport window
-  _se->setRenderRegion(
+  sim_->setRenderRegion(
     VkRect2D{VkOffset2D{static_cast<int32_t>(offset.x), static_cast<int32_t>(offset.y + 20)},
              VkExtent2D{static_cast<uint32_t>(viewportPanelSize.x), static_cast<uint32_t>(viewportPanelSize.y)}});
 
@@ -230,11 +230,11 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler) {
 
   // auto image = renderer_.GetFinalImage();
   // if (image)
-  // ImTextureID image = ImGui_CreateTexture(_se->m_offscreen.GetFinalImage().image);
+  // ImTextureID image = ImGui_CreateTexture(sim_->m_offscreen.GetFinalImage().image);
 
-  // _se->renderImage =
-  // ImGui_ImplVulkan_AddTexture(_se->m_offscreen.GetFinalImage().descriptor.sampler,
-  //                                                _se->m_offscreen.GetFinalImage().descriptor.imageView,
+  // sim_->renderImage =
+  // ImGui_ImplVulkan_AddTexture(sim_->m_offscreen.GetFinalImage().descriptor.sampler,
+  //                                                sim_->m_offscreen.GetFinalImage().descriptor.imageView,
   //                                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   // ImGui::Image((void*)renderImage, {viewportPanelSize.x, viewportPanelSize.y}, ImVec2(0, 1),
@@ -246,10 +246,10 @@ void SampleGUI::render(nvvk::ProfilerVK& profiler) {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiCamera() {
+bool SimGUI::guiCamera() {
   bool changed{false};
   changed |= ImGuiH::CameraWidget();
-  auto& cam = _se->m_scene.getCamera();
+  auto& cam = sim_->m_scene.getCamera();
   changed |= GuiH::Slider("Aperture", "", &cam.aperture, nullptr, ImGuiH::Control::Flags::Normal, 0.0f, 0.5f);
 
   return changed;
@@ -258,31 +258,31 @@ bool SampleGUI::guiCamera() {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiRayTracing() {
+bool SimGUI::guiRayTracing() {
   auto  Normal = ImGuiH::Control::Flags::Normal;
   bool  changed{false};
-  auto& rtxState(_se->m_rtxState);
+  auto& rtxState(sim_->m_rtxState);
 
   changed |= GuiH::Slider("Max Ray Depth", "", &rtxState.maxDepth, nullptr, Normal, 1, 10);
   changed |= GuiH::Slider("Samples Per Frame", "", &rtxState.maxSamples, nullptr, Normal, 1, 10);
-  changed |= GuiH::Slider("Max Iteration ", "", &_se->m_maxFrames, nullptr, Normal, 1, 1000);
+  changed |= GuiH::Slider("Max Iteration ", "", &sim_->m_maxFrames, nullptr, Normal, 1, 1000);
   changed |= GuiH::Slider("De-scaling ",
                           "Reduce resolution while navigating.\n"
                           "Speeding up rendering while camera moves.\n"
                           "Value of 1, will not de-scale",
-                          &_se->m_descalingLevel, nullptr, Normal, 1, 8);
+                          &sim_->m_descalingLevel, nullptr, Normal, 1, 8);
   changed |= GuiH::Slider("Accumulate", "Enable accumulation over multiple frames", &rtxState.accumulate, nullptr);
 
   changed |= GuiH::Selection("Pbr Mode", "PBR material model", &rtxState.pbrMode, nullptr, Normal, {"Disney", "Gltf"});
 
   static bool bAnyHit = true;
-  if (_se->m_rndMethod == SampleExample::RndMethod::eRtxPipeline) {
+  if (sim_->m_rndMethod == Simulator::RndMethod::eRtxPipeline) {
     if (GuiH::Checkbox("Enable AnyHit",
                        "AnyHit is used for double sided, cutout opacity, but can be slower "
                        "when all objects are opaque",
                        &bAnyHit, nullptr)) {
-      auto rtx = dynamic_cast<RtxPipeline*>(_se->m_pRender[_se->m_rndMethod]);
-      vkDeviceWaitIdle(_se->m_device);  // cannot run while changing this
+      auto rtx = dynamic_cast<RtxPipeline*>(sim_->m_pRender[sim_->m_rndMethod]);
+      vkDeviceWaitIdle(sim_->m_device);  // cannot run while changing this
       rtx->useAnyHit(bAnyHit);
       changed = true;
     }
@@ -317,12 +317,12 @@ bool SampleGUI::guiRayTracing() {
     return changed;
   });
 
-  if (_se->m_supportRayQuery) {
-    SampleExample::RndMethod method = _se->m_rndMethod;  // renderMethod;
+  if (sim_->m_supportRayQuery) {
+    Simulator::RndMethod method = sim_->m_rndMethod;  // renderMethod;
     if (GuiH::Selection<int>("Rendering Pipeline", "Choose the type of rendering", (int*)&method, nullptr,
                              GuiH::Control::Flags::Normal, {"Rtx", "Compute"})) {
-      _se->createRender(method);
-      //      _se->renderMethod = method;
+      sim_->createRender(method);
+      //      sim_->renderMethod = method;
       changed = true;
     }
   }
@@ -331,7 +331,7 @@ bool SampleGUI::guiRayTracing() {
   return changed;
 }
 
-bool SampleGUI::guiTonemapper() {
+bool SimGUI::guiTonemapper() {
   static Tonemapper default_tm{
     1.0f,          // brightness;
     1.0f,          // contrast;
@@ -345,7 +345,7 @@ bool SampleGUI::guiTonemapper() {
     0.5f,          // key;     // Log-average luminance
   };
 
-  auto&          tm = _se->m_offscreen.m_tonemapper;
+  auto&          tm = sim_->m_offscreen.m_tonemapper;
   bool           changed{false};
   std::bitset<8> b(tm.autoExposure);
 
@@ -378,7 +378,7 @@ bool SampleGUI::guiTonemapper() {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiEnvironment() {
+bool SimGUI::guiEnvironment() {
   static SunAndSky dss{
     {1, 1, 1},            // rgb_unit_conversion;
     0.0000101320f,        // multiplier;
@@ -399,10 +399,10 @@ bool SampleGUI::guiEnvironment() {
   };
 
   bool  changed{false};
-  auto& sunAndSky(_se->m_sunAndSky);
+  auto& sunAndSky(sim_->m_sunAndSky);
 
   changed |= ImGui::Checkbox("Use Sun & Sky", (bool*)&sunAndSky.in_use);
-  changed |= GuiH::Slider("Exposure", "Intensity of the environment", &_se->m_rtxState.hdrMultiplier, nullptr,
+  changed |= GuiH::Slider("Exposure", "Intensity of the environment", &sim_->m_rtxState.hdrMultiplier, nullptr,
                           GuiH::Flags::Normal, 0.f, 5.f);
 
   // Adjusting the up with the camera
@@ -464,12 +464,12 @@ bool SampleGUI::guiEnvironment() {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiStatistics() {
+bool SimGUI::guiStatistics() {
   ImGuiStyle& style    = ImGui::GetStyle();
   auto        pushItem = style.ItemSpacing;
   style.ItemSpacing.y  = -4;  // making the lines more dense
 
-  auto& stats = _se->m_scene.getStat();
+  auto& stats = sim_->m_scene.getStat();
 
   if (stats.nbCameras > 0)
     GuiH::Info("Cameras", "", FormatNumbers(stats.nbCameras));
@@ -491,7 +491,7 @@ bool SampleGUI::guiStatistics() {
     GuiH::Info("Triangles", "", FormatNumbers(stats.nbTriangles));
   if (stats.nbUniqueTriangles > 0)
     GuiH::Info("Unique Tri", "", FormatNumbers(stats.nbUniqueTriangles));
-  GuiH::Info("Resolution", "", std::to_string(_se->m_size.width) + "x" + std::to_string(_se->m_size.height));
+  GuiH::Info("Resolution", "", std::to_string(sim_->m_size.width) + "x" + std::to_string(sim_->m_size.height));
 
   style.ItemSpacing = pushItem;
 
@@ -501,7 +501,7 @@ bool SampleGUI::guiStatistics() {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
+bool SimGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
   struct Info {
     vec2  statRender{0.0f, 0.0f};
     vec2  statTone{0.0f, 0.0f};
@@ -524,7 +524,7 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
     collect.statTone.y += float(info.cpu.average / 1000.0f);
     collect.frameTime += 1000.0f / ImGui::GetIO().Framerate;
 
-    if (_se->m_offscreen.m_tonemapper.autoExposure == 1) {
+    if (sim_->m_offscreen.m_tonemapper.autoExposure == 1) {
       profiler.getTimerInfo("Mipmap", info);
       mipmapGen = float(info.gpu.average / 1000.0f);
       // LOGI("Mipmap Generation: %.2fms\n", info.gpu.average / 1000.0f);
@@ -546,7 +546,7 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
   ImGui::Text("Frame     [ms]: %2.3f", display.frameTime);
   ImGui::Text("Render GPU/CPU [ms]: %2.3f  /  %2.3f", display.statRender.x, display.statRender.y);
   ImGui::Text("Tone+UI GPU/CPU [ms]: %2.3f  /  %2.3f", display.statTone.x, display.statTone.y);
-  if (_se->m_offscreen.m_tonemapper.autoExposure == 1)
+  if (sim_->m_offscreen.m_tonemapper.autoExposure == 1)
     ImGui::Text("Mipmap Gen: %2.3fms", mipmapGen);
   ImGui::ProgressBar(display.statRender.x / display.frameTime);
 
@@ -556,7 +556,7 @@ bool SampleGUI::guiProfiler(nvvk::ProfilerVK& profiler) {
 //--------------------------------------------------------------------------------------------------
 //
 //
-bool SampleGUI::guiGpuMeasures() {
+bool SimGUI::guiGpuMeasures() {
 #if defined(NVP_SUPPORTS_NVML)
   if (g_nvml.isValid() == false)
     ImGui::Text("NVML wasn't loaded");
@@ -637,16 +637,16 @@ bool SampleGUI::guiGpuMeasures() {
 //--------------------------------------------------------------------------------------------------
 // This is displaying information in the titlebar
 //
-void SampleGUI::titleBar() {
+void SimGUI::titleBar() {
   static float dirtyTimer = 0.0f;
 
   dirtyTimer += ImGui::GetIO().DeltaTime;
   if (dirtyTimer > 1) {
     std::stringstream o;
     o << "VK glTF Viewer";
-    o << " | " << _se->m_scene.getSceneName();                                                   // Scene name
-    o << " | " << _se->m_renderRegion.extent.width << "x" << _se->m_renderRegion.extent.height;  // resolution
-    o << " | " << static_cast<int>(ImGui::GetIO().Framerate)                                     // FPS / ms
+    o << " | " << sim_->m_scene.getSceneName();                                                    // Scene name
+    o << " | " << sim_->m_renderRegion.extent.width << "x" << sim_->m_renderRegion.extent.height;  // resolution
+    o << " | " << static_cast<int>(ImGui::GetIO().Framerate)                                       // FPS / ms
       << " FPS / " << std::setprecision(3) << 1000.F / ImGui::GetIO().Framerate << "ms";
 #if defined(NVP_SUPPORTS_NVML)
     if (g_nvml.isValid())  // Graphic card, driver
@@ -656,9 +656,9 @@ void SampleGUI::titleBar() {
       o << " | " << g_nvml.getSysInfo().driverVersion;
     }
 #endif
-    if (_se->m_rndMethod != SampleExample::eNone && _se->m_pRender[_se->m_rndMethod] != nullptr)
-      o << " | " << _se->m_pRender[_se->m_rndMethod]->name();
-    glfwSetWindowTitle(_se->m_window, o.str().c_str());
+    if (sim_->m_rndMethod != Simulator::eNone && sim_->m_pRender[sim_->m_rndMethod] != nullptr)
+      o << " | " << sim_->m_pRender[sim_->m_rndMethod]->name();
+    glfwSetWindowTitle(sim_->m_window, o.str().c_str());
     dirtyTimer = 0;
   }
 }
@@ -666,7 +666,7 @@ void SampleGUI::titleBar() {
 //--------------------------------------------------------------------------------------------------
 //
 //
-void SampleGUI::menuBar() {
+void SimGUI::menuBar() {
   auto openFilename = [](const char* filter) {
 #ifdef _WIN32
     char          filename[MAX_PATH] = {0};
@@ -693,18 +693,18 @@ void SampleGUI::menuBar() {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
       if (ImGui::MenuItem("Open GLTF Scene"))
-        _se->loadAssets(openFilename("GLTF Files\0*.gltf;*.glb\0\0").c_str());
+        sim_->loadAssets(openFilename("GLTF Files\0*.gltf;*.glb\0\0").c_str());
       if (ImGui::MenuItem("Open HDR Environment"))
-        _se->loadAssets(openFilename("HDR Files\0*.hdr\0\0").c_str());
+        sim_->loadAssets(openFilename("HDR Files\0*.hdr\0\0").c_str());
       ImGui::Separator();
       if (ImGui::MenuItem("Quit", "ESC"))
-        glfwSetWindowShouldClose(_se->m_window, 1);
+        glfwSetWindowShouldClose(sim_->m_window, 1);
       ImGui::EndMenu();
     }
 
     if (ImGui::BeginMenu("Tools")) {
-      ImGui::MenuItem("Settings", "F10", &_se->m_show_gui);
-      ImGui::MenuItem("Axis", nullptr, &_se->m_showAxis);
+      ImGui::MenuItem("Settings", "F10", &sim_->m_show_gui);
+      ImGui::MenuItem("Axis", nullptr, &sim_->m_showAxis);
       ImGui::EndMenu();
     }
 
@@ -715,7 +715,7 @@ void SampleGUI::menuBar() {
 //--------------------------------------------------------------------------------------------------
 // Display a static window when loading assets
 //
-void SampleGUI::showBusyWindow() {
+void SimGUI::showBusyWindow() {
   static int   nb_dots   = 0;
   static float deltaTime = 0;
   bool         show      = true;
@@ -729,7 +729,7 @@ void SampleGUI::showBusyWindow() {
   }
 
   ImGui::SetNextWindowSize(ImVec2(float(width), float(height)));
-  ImGui::SetNextWindowPos(ImVec2(float(_se->m_size.width - width) * 0.5f, float(_se->m_size.height - height) * 0.5f));
+  ImGui::SetNextWindowPos(ImVec2(float(sim_->m_size.width - width) * 0.5f, float(sim_->m_size.height - height) * 0.5f));
 
   ImGui::SetNextWindowBgAlpha(0.75f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 15.0);
@@ -739,14 +739,14 @@ void SampleGUI::showBusyWindow() {
                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMouseInputs)) {
     ImVec2 available = ImGui::GetContentRegionAvail();
 
-    ImVec2 text_size = ImGui::CalcTextSize(_se->m_busyReasonText.c_str(), nullptr, false, available.x);
+    ImVec2 text_size = ImGui::CalcTextSize(sim_->m_busyReasonText.c_str(), nullptr, false, available.x);
 
     ImVec2 pos = ImGui::GetCursorPos();
     pos.x += (available.x - text_size.x) * 0.5f;
     pos.y += (available.y - text_size.y) * 0.5f;
 
     ImGui::SetCursorPos(pos);
-    ImGui::TextWrapped("%s", (_se->m_busyReasonText + std::string(nb_dots, '.')).c_str());
+    ImGui::TextWrapped("%s", (sim_->m_busyReasonText + std::string(nb_dots, '.')).c_str());
   }
   ImGui::PopStyleVar();
   ImGui::End();

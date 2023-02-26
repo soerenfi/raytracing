@@ -17,7 +17,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #include <thread>
 
 #include "backends/imgui_impl_glfw.h"
@@ -25,17 +24,15 @@
 #include "nvh/fileoperations.hpp"
 #include "nvh/inputparser.h"
 #include "nvvk/context_vk.hpp"
-#include "sample_example.hpp"
+#include "simulator.hpp"
 
 // Default search path for shaders
 std::vector<std::string> defaultSearchPaths;
 
 // GLFW Callback functions
-static void onErrorCallback(int error, const char* description)
-{
+static void onErrorCallback(int error, const char* description) {
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
-
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -46,16 +43,14 @@ static int const SAMPLE_HEIGHT = 720;
 //--------------------------------------------------------------------------------------------------
 // Application Entry
 //
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   InputParser parser(argc, argv);
   std::string sceneFile   = parser.getString("-f", "assets/maps/default/main.gltf");
   std::string hdrFilename = parser.getString("-e", "assets/hdr/std_env.hdr");
 
   // Setup GLFW window
   glfwSetErrorCallback(onErrorCallback);
-  if(glfwInit() == GLFW_FALSE)
-  {
+  if (glfwInit() == GLFW_FALSE) {
     return 1;
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -66,8 +61,7 @@ int main(int argc, char** argv)
   CameraManip.setLookat({2.0, 2.0, -5.0}, {-1.0, 2.0, -1.0}, {0.000, 1.000, 0.000});
 
   // Setup Vulkan
-  if(glfwVulkanSupported() == GLFW_FALSE)
-  {
+  if (glfwVulkanSupported() == GLFW_FALSE) {
     printf("GLFW: Vulkan Not Supported\n");
     return 1;
   }
@@ -77,10 +71,10 @@ int main(int argc, char** argv)
 
   // Search path for shaders and other media
   defaultSearchPaths = {
-      NVPSystem::exePath() + PROJECT_NAME,
-      NVPSystem::exePath() + R"(media)",
-      NVPSystem::exePath() + PROJECT_RELDIRECTORY,
-      NVPSystem::exePath() + PROJECT_DOWNLOAD_RELDIRECTORY,
+    NVPSystem::exePath() + PROJECT_NAME,
+    NVPSystem::exePath() + R"(media)",
+    NVPSystem::exePath() + PROJECT_RELDIRECTORY,
+    NVPSystem::exePath() + PROJECT_DOWNLOAD_RELDIRECTORY,
   };
 
   // Vulkan required extensions
@@ -90,8 +84,8 @@ int main(int argc, char** argv)
 
   // Requesting Vulkan extensions and layers
   nvvk::ContextCreateInfo contextInfo(true);
-  contextInfo.setVersion(1, 2);                       // Using Vulkan 1.2
-  for(uint32_t ext_id = 0; ext_id < count; ext_id++)  // Adding required extensions (surface, win32, linux, ..)
+  contextInfo.setVersion(1, 2);                        // Using Vulkan 1.2
+  for (uint32_t ext_id = 0; ext_id < count; ext_id++)  // Adding required extensions (surface, win32, linux, ..)
     contextInfo.addInstanceExtension(reqExtensions[ext_id]);
   contextInfo.addInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, true);  // Allow debug names
   contextInfo.addDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);            // Enabling ability to present rendering
@@ -99,9 +93,11 @@ int main(int argc, char** argv)
   VkPhysicalDeviceShaderClockFeaturesKHR clockFeature{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR};
   contextInfo.addDeviceExtension(VK_KHR_SHADER_CLOCK_EXTENSION_NAME, false, &clockFeature);
   // #VKRay: Activate the ray tracing extension
-  VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
+  VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{
+    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
   contextInfo.addDeviceExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, false, &accelFeature);
-  VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
+  VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{
+    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
   contextInfo.addDeviceExtension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, false, &rtPipelineFeature);
   VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR};
   contextInfo.addDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);  // Optional extension
@@ -126,7 +122,6 @@ int main(int argc, char** argv)
   contextInfo.instanceCreateInfoExt       = &features;
 #endif  // ENABLE_GPU_PRINTF
 
-
   // Creating Vulkan base application
   nvvk::Context vkctx{};
   vkctx.initInstance(contextInfo);
@@ -134,15 +129,14 @@ int main(int argc, char** argv)
   assert(!compatibleDevices.empty());
   vkctx.initDevice(compatibleDevices[0], contextInfo);  // Use first compatible device
 
-
   //
-  SampleExample sample;
-  sample.supportRayQuery(vkctx.hasDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME));
+  Simulator sim;
+  sim.supportRayQuery(vkctx.hasDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME));
 
   // Window need to be opened to get the surface on which to draw
-  const VkSurfaceKHR surface = sample.getVkSurface(vkctx.m_instance, window);
+  const VkSurfaceKHR surface = sim.getVkSurface(vkctx.m_instance, window);
   vkctx.setGCTQueueWithPresent(surface);
-  sample.setupGlfwCallbacks(window);
+  sim.setupGlfwCallbacks(window);
 
   // Collecting all the Queues the sample will need.
   // - 3 default queues are created, but need extra for load/generate mip-maps
@@ -158,33 +152,32 @@ int main(int argc, char** argv)
   queues.push_back({vkctx.m_queueT.queue, vkctx.m_queueT.familyIndex, vkctx.m_queueT.queueIndex});
 
   // Create example
-  sample.setup(vkctx.m_instance, vkctx.m_device, vkctx.m_physicalDevice, queues);
-  sample.createSwapchain(surface, SAMPLE_WIDTH, SAMPLE_HEIGHT);
-  sample.createDepthBuffer();
-  sample.createRenderPass();
-  sample.createFrameBuffers();
+  sim.setup(vkctx.m_instance, vkctx.m_device, vkctx.m_physicalDevice, queues);
+  sim.createSwapchain(surface, SAMPLE_WIDTH, SAMPLE_HEIGHT);
+  sim.createDepthBuffer();
+  sim.createRenderPass();
+  sim.createFrameBuffers();
 
   // Setup Imgui
-  sample.initGUI();
-  sample.createOffscreenRender();
+  sim.initGUI();
+  sim.createOffscreenRender();
   ImGui_ImplGlfw_InitForVulkan(window, true);
 
   ImGui::GetIO().MouseDoubleClickTime    = 0.2f;  // Default: 0.3
   ImGui::GetIO().MouseDoubleClickMaxDist = 2.0f;  // Default: 6.0
 
   // Creation of the example - loading scene in separate thread
-  sample.loadEnvironmentHdr(nvh::findFile(hdrFilename, defaultSearchPaths, true));
-  sample.m_busy = true;
+  sim.loadEnvironmentHdr(nvh::findFile(hdrFilename, defaultSearchPaths, true));
+  sim.m_busy = true;
   std::thread([&] {
-    sample.m_busyReasonText = "Loading Scene";
-    sample.loadScene(nvh::findFile(sceneFile, defaultSearchPaths, true));
-    sample.createUniformBuffer();
-    sample.createDescriptorSetLayout();
-    sample.createRender(SampleExample::eRtxPipeline);
-    sample.resetFrame();
-    sample.m_busy = false;
+    sim.m_busyReasonText = "Loading Scene";
+    sim.loadScene(nvh::findFile(sceneFile, defaultSearchPaths, true));
+    sim.createUniformBuffer();
+    sim.createDescriptorSetLayout();
+    sim.createRender(Simulator::eRtxPipeline);
+    sim.resetFrame();
+    sim.m_busy = false;
   }).detach();
-
 
   // Profiler measure the execution time on the GPU
   nvvk::ProfilerVK profiler;
@@ -193,34 +186,32 @@ int main(int argc, char** argv)
   profiler.setLabelUsage(true);  // depends on VK_EXT_debug_utils
 
   // Main loop
-  while(glfwWindowShouldClose(window) == GLFW_FALSE)
-  {
+  while (glfwWindowShouldClose(window) == GLFW_FALSE) {
     glfwPollEvents();
-    if(sample.isMinimized())
+    if (sim.isMinimized())
       continue;
 
     // Start the Dear ImGui frame
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-
     // Start rendering the scene
     profiler.beginFrame();  // GPU performance timer
-    sample.prepareFrame();  // Waits for a framebuffer to be available
-    sample.updateFrame();   // Increment/update rendering frame count
+    sim.prepareFrame();  // Waits for a framebuffer to be available
+    sim.updateFrame();   // Increment/update rendering frame count
 
     // Start command buffer of this frame
-    auto                   curFrame = sample.getCurFrame();
-    const VkCommandBuffer& cmdBuf   = sample.getCommandBuffers()[curFrame];
+    auto                   curFrame = sim.getCurFrame();
+    const VkCommandBuffer& cmdBuf   = sim.getCommandBuffers()[curFrame];
 
     VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(cmdBuf, &beginInfo);
 
-    sample.renderGui(profiler);          // UI
-    sample.updateUniformBuffer(cmdBuf);  // Updating UBOs
+    sim.renderGui(profiler);          // UI
+    sim.updateUniformBuffer(cmdBuf);  // Updating UBOs
 
     // Rendering Scene (ray tracing)
-    sample.renderScene(cmdBuf, profiler);
+    sim.renderScene(cmdBuf, profiler);
 
     // Rendering pass in swapchain framebuffer + tone mapper, UI
     {
@@ -233,18 +224,18 @@ int main(int argc, char** argv)
       VkRenderPassBeginInfo postRenderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
       postRenderPassBeginInfo.clearValueCount = 2;
       postRenderPassBeginInfo.pClearValues    = clearValues.data();
-      postRenderPassBeginInfo.renderPass      = sample.getRenderPass();
-      postRenderPassBeginInfo.framebuffer     = sample.getFramebuffers()[curFrame];
-      postRenderPassBeginInfo.renderArea      = {{}, sample.getSize()};
+      postRenderPassBeginInfo.renderPass      = sim.getRenderPass();
+      postRenderPassBeginInfo.framebuffer     = sim.getFramebuffers()[curFrame];
+      postRenderPassBeginInfo.renderArea      = {{}, sim.getSize()};
 
       vkCmdBeginRenderPass(cmdBuf, &postRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-      // Draw the rendering result + tonemapper
-      sample.drawPost(cmdBuf);
 
       // Render the UI
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
+
+      // Draw the rendering result + tonemapper
+      sim.drawPost(cmdBuf);
 
       vkCmdEndRenderPass(cmdBuf);
     }
@@ -253,15 +244,15 @@ int main(int argc, char** argv)
 
     // Submit for display
     vkEndCommandBuffer(cmdBuf);
-    sample.submitFrame();
+    sim.submitFrame();
 
     CameraManip.updateAnim();
   }
 
   // Cleanup
-  vkDeviceWaitIdle(sample.getDevice());
-  sample.destroyResources();
-  sample.destroy();
+  vkDeviceWaitIdle(sim.getDevice());
+  sim.destroyResources();
+  sim.destroy();
   profiler.deinit();
   vkctx.deinit();
 

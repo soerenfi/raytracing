@@ -17,7 +17,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 
 #ifndef TOOLS_H
@@ -32,22 +31,21 @@
 //   double time_elapse = timer.elapse();
 // }
 #include <chrono>
-#include <sstream>
 #include <ios>
+#include <sstream>
 
 #include "nvh/nvprint.hpp"
 #include "nvh/timesampler.hpp"
 
-struct MilliTimer : public nvh::Stopwatch
-{
-  void print() { LOGI(" --> (%5.3f ms)\n", elapsed()); }
+struct MilliTimer : public nvh::Stopwatch {
+  void print() {
+    LOGI(" --> (%5.3f ms)\n", elapsed());
+  }
 };
-
 
 // Formating with local number representation
 template <class T>
-std::string FormatNumbers(T value)
-{
+std::string FormatNumbers(T value) {
   std::stringstream ss;
   ss.imbue(std::locale(""));
   ss << std::fixed << value;

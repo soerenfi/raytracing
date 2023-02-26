@@ -17,13 +17,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 //////////////////////////////////////////////////////////////////////////
 
 #include <array>
 #include <vector>
-
 
 #include "nvvk/debug_util_vk.hpp"
 #include "nvvk/images_vk.hpp"
@@ -33,18 +31,21 @@
 //--------------------------------------------------------------------------------------------------
 // Load an environment image (HDR) and create an acceleration structure for
 // important light sampling.
-class HdrSampling
-{
+class HdrSampling {
 public:
   HdrSampling() = default;
 
-  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator);
+  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+             nvvk::ResourceAllocator* allocator);
   void loadEnvironment(const std::string& hrdImage);
 
-
   void  destroy();
-  float getIntegral() { return m_integral; }
-  float getAverage() { return m_average; }
+  float getIntegral() {
+    return m_integral;
+  }
+  float getAverage() {
+    return m_average;
+  }
 
   // Resources
   nvvk::Texture m_texHdr;
@@ -58,7 +59,6 @@ private:
 
   float m_integral{1.f};
   float m_average{1.f};
-
 
   float                 buildAliasmap(const std::vector<float>& data, std::vector<EnvAccel>& accel);
   std::vector<EnvAccel> createEnvironmentAccel(const float* pixels, VkExtent2D& size);

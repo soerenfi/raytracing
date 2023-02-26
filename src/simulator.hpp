@@ -17,7 +17,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 #include "hdr_sampling.hpp"
 #include "nvvk/gizmos_vk.hpp"
@@ -39,7 +38,6 @@
 
 */
 
-
 // #define ALLOC_DMA  <--- This is in the CMakeLists.txt
 #include "nvvk/resourceallocator_vk.hpp"
 #if defined(ALLOC_DMA)
@@ -54,20 +52,19 @@ typedef nvvk::ResourceAllocatorDedicated Allocator;
 
 #define CPP  // For sun_and_sky
 
+#include "accelstruct.hpp"
+#include "appbase.hpp"
+#include "imgui_internal.h"
 #include "nvh/gltfscene.hpp"
-#include "nvvkhl/appbase_vk.hpp"
 #include "nvvk/debug_util_vk.hpp"
 #include "nvvk/profiler_vk.hpp"
-#include "nvvk/raytraceKHR_vk.hpp"
 #include "nvvk/raypicker_vk.hpp"
-
-#include "accelstruct.hpp"
+#include "nvvk/raytraceKHR_vk.hpp"
+#include "nvvkhl/hdr_env.hpp"
+#include "queue.hpp"
 #include "render_output.hpp"
 #include "scene.hpp"
 #include "shaders/host_device.h"
-
-#include "imgui_internal.h"
-#include "queue.hpp"
 
 class SampleGUI;
 
@@ -78,30 +75,24 @@ class SampleGUI;
 // - Rendering is done in an offscreen framebuffer
 // - The image of the framebuffer is displayed in post-process in a full-screen quad
 //
-class SampleExample : public nvvkhl::AppBaseVk
-{
-  friend SampleGUI;
+class Simulator : public AppBase {
+  friend class SimGUI;
 
 public:
-  enum RndMethod
-  {
+  enum RndMethod {
     eRtxPipeline,
     eRayQuery,
     eNone,
   };
 
-  enum Queues
-  {
-    eGCT0,
-    eGCT1,
-    eCompute,
-    eTransfer
-  };
+  enum Queues { eGCT0, eGCT1, eCompute, eTransfer };
 
+  void setup(const VkInstance& instance, const VkDevice& device, const VkPhysicalDevice& physicalDevice,
+             const std::vector<nvvk::Queue>& queues);
 
-  void setup(const VkInstance& instance, const VkDevice& device, const VkPhysicalDevice& physicalDevice, const std::vector<nvvk::Queue>& queues);
-
-  bool isBusy() { return m_busy; }
+  bool isBusy() {
+    return m_busy;
+  }
   void createDescriptorSetLayout();
   void createUniformBuffer();
   void destroyResources();
@@ -120,6 +111,10 @@ public:
   void updateFrame();
   void updateHdrDescriptors();
   void updateUniformBuffer(const VkCommandBuffer& cmdBuf);
+  void copyImagesToCuda(VkCommandBuffer cmd);
+  void submitSignalSemaphore(const VkCommandBuffer& cmdBuf);
+
+  nvvk::Context m_ctx{};
 
   Scene              m_scene;
   AccelStructure     m_accelStruct;
@@ -129,7 +124,9 @@ public:
   nvvk::RayPickerKHR m_picker;
 
   // It is possible that ray query isn't supported (ex. Titan)
-  void supportRayQuery(bool support) { m_supportRayQuery = support; }
+  void supportRayQuery(bool support) {
+    m_supportRayQuery = support;
+  }
   bool m_supportRayQuery{true};
 
   // All renderers
@@ -147,7 +144,6 @@ public:
   Allocator       m_alloc;  // Allocator for buffer, images, acceleration structures
   nvvk::DebugUtil m_debug;  // Utility to name objects
 
-
   VkRect2D m_renderRegion{};
   void     setRenderRegion(const VkRect2D& size);
 
@@ -158,38 +154,38 @@ public:
   // #VKRay
   void renderScene(const VkCommandBuffer& cmdBuf, nvvk::ProfilerVK& profiler);
 
-
   RtxState m_rtxState{
-      0,       // frame;
-      10,      // maxDepth;
-      1,       // maxSamples;
-      1,       // fireflyClampThreshold;
-      1,       // hdrMultiplier;
-      0,       // debugging_mode;
-      0,       // pbrMode;
-      0,       // _pad0;
-      {0, 0},  // size;
-      0,       // minHeatmap;
-      65000    // maxHeatmap;
+    0,       // frame;
+    10,      // maxDepth;
+    1,       // maxSamples;
+    1,       // fireflyClampThreshold;
+    1,       // hdrMultiplier;
+    0,       // debugging_mode;
+    0,       // pbrMode;
+    0,       // _pad0;
+    {0, 0},  // size;
+    0,       // minHeatmap;
+    65000,   // maxHeatmap;
+    0,       // accumulate
   };
 
   SunAndSky m_sunAndSky{
-      {1, 1, 1},            // rgb_unit_conversion;
-      0.0000101320f,        // multiplier;
-      0.0f,                 // haze;
-      0.0f,                 // redblueshift;
-      1.0f,                 // saturation;
-      0.0f,                 // horizon_height;
-      {0.4f, 0.4f, 0.4f},   // ground_color;
-      0.1f,                 // horizon_blur;
-      {0.0, 0.0, 0.01f},    // night_color;
-      0.8f,                 // sun_disk_intensity;
-      {0.00, 0.78, 0.62f},  // sun_direction;
-      5.0f,                 // sun_disk_scale;
-      1.0f,                 // sun_glow_intensity;
-      1,                    // y_is_up;
-      1,                    // physically_scaled_sun;
-      0,                    // in_use;
+    {1, 1, 1},            // rgb_unit_conversion;
+    0.0000101320f,        // multiplier;
+    0.0f,                 // haze;
+    0.0f,                 // redblueshift;
+    1.0f,                 // saturation;
+    0.0f,                 // horizon_height;
+    {0.4f, 0.4f, 0.4f},   // ground_color;
+    0.1f,                 // horizon_blur;
+    {0.0, 0.0, 0.01f},    // night_color;
+    0.8f,                 // sun_disk_intensity;
+    {0.00, 0.78, 0.62f},  // sun_direction;
+    5.0f,                 // sun_disk_scale;
+    1.0f,                 // sun_glow_intensity;
+    1,                    // y_is_up;
+    1,                    // physically_scaled_sun;
+    0,                    // in_use;
   };
 
   int         m_maxFrames{100000};
@@ -199,6 +195,30 @@ public:
   bool        m_busy{false};
   std::string m_busyReasonText;
 
+  std::shared_ptr<SimGUI> m_gui;
 
-  std::shared_ptr<SampleGUI> m_gui;
+  // VkDescriptorSet renderImage{VK_NULL_HANDLE};
+
+  // for Viewport
+  std::vector<VkImage>        m_ViewportImages;
+  std::vector<VkDeviceMemory> m_DstImageMemory;
+  std::vector<VkImageView>    m_ViewportImageViews;
+
+  VkRenderPass                 m_ViewportRenderPass;
+  VkPipeline                   m_ViewportPipeline;
+  VkCommandPool                m_ViewportCommandPool;
+  std::vector<VkFramebuffer>   m_ViewportFramebuffers;
+  std::vector<VkCommandBuffer> m_ViewportCommandBuffers;
+
+  struct Settings {
+    int           maxFrames{200000};
+    int           maxSamples{1};
+    int           maxDepth{5};
+    bool          showAxis{true};
+    nvmath::vec4f clearColor{1.F};
+    float         envRotation{0.F};
+    bool          denoiseApply{true};
+    bool          denoiseFirstFrame{false};
+    int           denoiseEveryNFrames{100};
+  } m_settings;
 };

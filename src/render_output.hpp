@@ -22,43 +22,48 @@
 // It also creates a pipeline for drawing this image from HDR to LDR applying a tonemapper
 //
 
-
 #pragma once
 
+#include "Image.h"
 #include "nvmath/nvmath.h"
-
-#include "nvvk/resourceallocator_vk.hpp"
 #include "nvvk/debug_util_vk.hpp"
 #include "nvvk/descriptorsets_vk.hpp"
+#include "nvvk/resourceallocator_vk.hpp"
 #include "shaders/host_device.h"
 
-
-class RenderOutput
-{
+class RenderOutput {
 public:
   Tonemapper m_tonemapper{
-      1.0f,          // brightness;
-      1.0f,          // contrast;
-      1.0f,          // saturation;
-      0.0f,          // vignette;
-      1.0f,          // avgLum;
-      1.0f,          // zoom;
-      {1.0f, 1.0f},  // renderingRatio;
-      0,             // autoExposure;
-      0.5f,          // Ywhite;  // Burning white
-      0.5f,          // key;     // Log-average luminance
+    1.0f,          // brightness;
+    1.0f,          // contrast;
+    1.0f,          // saturation;
+    0.0f,          // vignette;
+    1.0f,          // avgLum;
+    1.0f,          // zoom;
+    {1.0f, 1.0f},  // renderingRatio;
+    0,             // autoExposure;
+    0.5f,          // Ywhite;  // Burning white
+    0.5f,          // key;     // Log-average luminance
   };
 
 public:
-  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex, nvvk::ResourceAllocator* allocator);
+  void setup(const VkDevice& device, const VkPhysicalDevice& physicalDevice, uint32_t familyIndex,
+             nvvk::ResourceAllocator* allocator);
   void destroy();
   void create(const VkExtent2D& size, const VkRenderPass& renderPass);
   void update(const VkExtent2D& size);
   void run(VkCommandBuffer cmdBuf);
   void genMipmap(VkCommandBuffer cmdBuf);
 
-  VkDescriptorSetLayout getDescLayout() { return m_postDescSetLayout; }
-  VkDescriptorSet       getDescSet() { return m_postDescSet; }
+  VkDescriptorSetLayout getDescLayout() {
+    return m_postDescSetLayout;
+  }
+  VkDescriptorSet getDescSet() {
+    return m_postDescSet;
+  }
+  nvvk::Texture GetFinalImage() const {
+    return m_offscreenColor;
+  }
 
 private:
   void createOffscreenRender(const VkExtent2D& size);
@@ -71,10 +76,9 @@ private:
   VkPipeline            m_postPipeline{VK_NULL_HANDLE};
   VkPipelineLayout      m_postPipelineLayout{VK_NULL_HANDLE};
   nvvk::Texture         m_offscreenColor;
-  //VkFormat m_offscreenColorFormat{VkFormat::eR16G16B16A16Sfloat};  // Darkening the scene over 5000 iterations
+  // VkFormat m_offscreenColorFormat{VkFormat::eR16G16B16A16Sfloat};  // Darkening the scene over 5000 iterations
   VkFormat m_offscreenColorFormat{VK_FORMAT_R32G32B32A32_SFLOAT};
   VkFormat m_offscreenDepthFormat{VK_FORMAT_X8_D24_UNORM_PACK32};  // Will be replaced by best supported format
-
 
   // Setup
   nvvk::ResourceAllocator* m_pAlloc;  // Allocator for buffer, images, acceleration structures

@@ -17,15 +17,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 #include "vulkan/vulkan_core.h"
 
-
 namespace nvvk {
 // Holding the queue created at Vulkan context creation, using nvvk::Context
-struct Queue
-{
+struct Queue {
   VkQueue  queue{VK_NULL_HANDLE};
   uint32_t familyIndex{~0u};
   uint32_t queueIndex{~0u};

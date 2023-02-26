@@ -20,32 +20,27 @@
 #pragma once
 #include "nvvk/profiler_vk.hpp"
 
-
 //--------------------------------------------------------------------------------------------------
 // This implements all graphical user interface of SampleExample.
-class SampleExample; // Forward declaration
+class Simulator;  // Forward declaration
 
-class SampleGUI
-{
+class SimGUI {
 public:
-  SampleGUI(SampleExample* _s)
-      : _se(_s)
-  {
-  }
+  SimGUI(Simulator* _sim)
+      : sim_(_sim) {}
   void render(nvvk::ProfilerVK& profiler);
   void titleBar();
   void menuBar();
   void showBusyWindow();
 
 private:
-  bool           guiCamera();
-  bool           guiRayTracing();
-  bool           guiTonemapper();
-  bool           guiEnvironment();
-  bool           guiStatistics();
-  bool           guiProfiler(nvvk::ProfilerVK& profiler);
-  bool           guiGpuMeasures();
+  bool guiCamera();
+  bool guiRayTracing();
+  bool guiTonemapper();
+  bool guiEnvironment();
+  bool guiStatistics();
+  bool guiProfiler(nvvk::ProfilerVK& profiler);
+  bool guiGpuMeasures();
 
-  SampleExample* _se{nullptr};
+  Simulator* sim_{nullptr};
 };
-

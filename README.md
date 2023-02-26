@@ -25,3 +25,10 @@ Profiling: Wrapper for tracy
 ## Rendering: 
 Modular --> add multiple renderers with different config (shaders/camera types (pinhole/ftheta/depth)
 Denoising
+
+
+## future work
+* add denoising
+* split rendering and UI into separate threads, fix rendering thread rate @30Hz (configurable)
+* add headless mode
+* add osi receiver
